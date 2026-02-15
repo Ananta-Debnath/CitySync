@@ -1,0 +1,52 @@
+1	Motijheel	Dhaka GPO	 	1000
+2	Dhaka Sadar	Dhaka Sadar HO	 	1100
+3	Dhaka Sadar	Wari TSO	 	1203
+4	Dhaka Sadar	Gandaria TSO	 	1204
+5	Nilkhet	New Market TSO	 	1205
+6	Kochukhet	Dhaka Cen,ft. TSO	 	1206
+7	Mohammadpur	Mohammadpur Housing Estate TSO	 	1207
+8	Kamrangirchar	Posta TSO	 	1211	 
+9	Tejgaon	Dhaka Politechnique Institut TSO	 	1208
+10	Dhanmondi	Jigatola TSO	 	1209
+11	Gulshan	Gulshan TSO	 	1212
+12	Banani	Banani TSO	 	1213
+13	Khilgaon	Bashabo TSO	 	1214
+14	Banani	Banani TSO	 	1219
+15	Tejgaon	Tejgaon TSO	 	1215
+16	Mirpur	Mirpur TSO	 	1216
+17	Shantinagar	Shantinagar TSO	 	1217
+18	Mohammadpur	Bangabhaban TSO	 	1222
+19	Motijheel	Dilkusha TSO	 	1223
+20	Lalmati	Sangshad Bhaban	 	1225
+21	Khilkhet	Khilkhet TSO	 	1229
+22	Uttara	Uttara Model Town TSO	 	1230
+23	Dania	Dania TSO	 	1236
+24	Keranigonj	Keranigonj UPO	 	1310 	 
+25	Keranigonj	Dhaka Jute Mils SO	 	1311 	 
+26	Keranigonj	Ati EDSO	 	1312
+27	Keranigonj	Kalatia SO	 	1313 	 
+28	Nawabgonj	Nawabgonj UPO	 	1320 	 
+29	Nawabgonj	Hasnabad SO	 	1321
+30	Nawabgonj	Daudpur So	 	1322	 
+31	Nawabgonj	Agla EDSO	 	1323
+32	Nawabgonj	Khalpur EDSO	 	1324
+33	Nawabgonj	Churan So	 	1325
+34	Joypara (Dohar)	Joypara (Dohar) UPO	 	1330	 	 
+35	Joypara (Dohar)	Palamgonj SO	 	1331	 
+36	Joypara (Dohar)	Narisha SO	 	1332
+37	Joypara (Dohar)	Mokshedpur So	 	1333
+38	Savar	Savar UPO	 	1340	 
+39	Savar	Dairy Firm SO	 	1341	 
+40	Savar	Jahangir Nagar University SO	 	1342
+41	Savar	Savar PATC  SO	 	1343 
+42	Savar	Savar Cantt. SO	 	1344 	 
+43	Savar	Shimulia SO	 	1345	 
+44	Savar	Kashem Cotton Mills SO	 	1346
+45	Savar	Rajfulbaria EDSO	 	1347
+46	Savar	Amin Bazar	 	1348
+47	Savar	EPZ SO	 	1349	 
+48	Dhamrai	Dhamrai UPO	 	1350	 
+49	Dhamrai	Kalampur EDSO	 	1351
+50	Demra	Demra UPO	 	1360	 	 
+51	Demra	Sarulia SO	 	1361	 
+52	Kodomtoli	Kodomtoli UPO	 	1362	 	 
