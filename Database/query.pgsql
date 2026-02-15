@@ -1,0 +1,1 @@
+select * from utility_connection where connection_id = 1;

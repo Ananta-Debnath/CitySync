@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
 const pool = require("../db");
 
 const login = async (req, res) => {
@@ -40,11 +41,22 @@ const login = async (req, res) => {
       return res.status(401).json({ error: "Invalid username or password" });
     }
 
+    // 3️⃣ Generate JWT
+    const token = jwt.sign(
+      {
+        account_id: matchedUser.account_id,
+        role: matchedUser.account_type
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     res.json({
-      username: matchedUser.email,
-      accountId: matchedUser.account_id,
-      accountType: matchedUser.account_type,
+      success: true,
+      token,
+      role: matchedUser.account_type,
     });
+
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: "Database error" });
