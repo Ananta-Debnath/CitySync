@@ -3,16 +3,17 @@ const jwt = require('jsonwebtoken');
 const pool = require("../db");
 
 const login = async (req, res) => {
-  const { username, password } = req.body;
+  const { identifier, password } = req.body;
+  console.log("Login attempt", { identifier });
 
   try {
     const result = await pool.query(
       "SELECT * FROM ACCOUNT WHERE EMAIL=$1",
-      [username]
+      [identifier]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid username or password" });
+      return res.status(401).json({ error: "Invalid identifier or password" });
     }
 
     // multiple rows may exist for the same email; find the row whose
@@ -28,6 +29,7 @@ const login = async (req, res) => {
       try {
         const match = await bcrypt.compare(password, hashed);
         if (match) {
+          console.log("Password match for account", { account: u });
           matchedUser = u;
           break;
         }
@@ -38,7 +40,7 @@ const login = async (req, res) => {
     }
 
     if (!matchedUser) {
-      return res.status(401).json({ error: "Invalid username or password" });
+      return res.status(401).json({ error: "Invalid identifier or password" });
     }
 
     // 3️⃣ Generate JWT
@@ -65,21 +67,21 @@ const login = async (req, res) => {
 
 // // Create account route
 // app.post("/register", async (req, res) => {
-// const { person_id, username, password, accountType} = req.body;
+// const { person_id, identifier, password, accountType} = req.body;
 
-// if (!person_id || !username || !password || !accountType) {
-//     return res.status(400).json({ error: "Missing person_id, username, password, or account type" });
+// if (!person_id || !identifier || !password || !accountType) {
+//     return res.status(400).json({ error: "Missing person_id, identifier, password, or account type" });
 // }
 
 // try {
 //     const hashed = await bcrypt.hash(password, 10);
 //     const result = await pool.query(
 //     "INSERT INTO ACCOUNT (person_id, account_type, email, password_hashed, is_active, created_at) VALUES ($1, $2, $3, $4, TRUE, NOW()) RETURNING account_id, email, account_type",
-//     [person_id, accountType, username, hashed]
+//     [person_id, accountType, identifier, hashed]
 //     );
 
 //     const created = result.rows[0];
-//     res.status(201).json({ accountId: created.account_id, username: created.email, accountType: created.account_type });
+//     res.status(201).json({ accountId: created.account_id, identifier: created.email, accountType: created.account_type });
 // } catch (err) {
 //     console.error("Error creating account", err.message);
 //     res.status(500).json({ error: "Database error" });
