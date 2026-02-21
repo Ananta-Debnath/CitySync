@@ -16,21 +16,20 @@ import Dashboard from './components/Dashboard/Dashboard';
 import ConsumerDashboard from './components/Consumer/ConsumerDashboard';
 import MyBills           from './components/Consumer/MyBills';
 import BillDetail        from './components/Consumer/BillDetail';
+import UsageHistory      from './components/Consumer/UsageHistory';
+import Complaints        from './components/Consumer/Complaints';
 
-// Regions (employee)
+// Employee pages
 import RegionList from './components/Regions/RegionList';
 import RegionForm from './components/Regions/RegionForm';
 import RegionEdit from './components/Regions/RegionEdit';
 
 const RootRedirect = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, loading, getHomePath } = useAuth();
+
+  if (loading) return null; // wait for user fetch to finish
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  const home = {
-    employee:     '/employee/dashboard',
-    field_worker: '/field-worker/dashboard',
-    consumer:     '/consumer/dashboard',
-  };
-  return <Navigate to={home[user?.role] || '/login'} replace />;
+  return <Navigate to={getHomePath()} replace />;
 };
 
 function App() {
@@ -49,10 +48,12 @@ function App() {
               <ProtectedRoute roles={['consumer']}>
                 <Layout>
                   <Routes>
-                    <Route path="dashboard"    element={<ConsumerDashboard />} />
-                    <Route path="bills"        element={<MyBills />} />
-                    <Route path="bills/:id"    element={<BillDetail />} />
-                    {/* Add: bills, payments, usage, complaints, profile */}
+                    <Route path="dashboard"  element={<ConsumerDashboard />} />
+                    <Route path="bills"      element={<MyBills />} />
+                    <Route path="bills/:id"  element={<BillDetail />} />
+                    <Route path="usage"      element={<UsageHistory />} />
+                    <Route path="complaints" element={<Complaints />} />
+                    {/* TODO: payments, profile */}
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </Layout>
@@ -64,10 +65,8 @@ function App() {
               <ProtectedRoute roles={['field_worker']}>
                 <Layout>
                   <Routes>
-                    <Route path="dashboard"    element={<ConsumerDashboard />} />
-                    <Route path="bills"        element={<MyBills />} />
-                    <Route path="bills/:id"    element={<BillDetail />} />
-                    {/* Add: jobs, readings */}
+                    <Route path="dashboard" element={<ConsumerDashboard />} />
+                    {/* TODO: jobs, readings */}
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </Layout>
@@ -79,11 +78,11 @@ function App() {
               <ProtectedRoute roles={['employee']}>
                 <Layout>
                   <Routes>
-                    <Route path="dashboard"        element={<Dashboard />} />
+                    <Route path="dashboard"        element={<ConsumerDashboard />} />
                     <Route path="regions"          element={<RegionList />} />
                     <Route path="regions/new"      element={<RegionForm />} />
                     <Route path="regions/edit/:id" element={<RegionEdit />} />
-                    {/* Add: connections, consumers, tariffs, complaints, field-workers, analytics */}
+                    {/* TODO: connections, consumers, tariffs, complaints, field-workers, analytics */}
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </Layout>

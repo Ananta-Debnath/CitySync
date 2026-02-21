@@ -106,10 +106,22 @@ const ConsumerDashboard = () => {
         authFetch(`/api/consumer/connections`),
         authFetch(`/api/consumer/bills?limit=5`),
       ]);
+      if (!connRes.ok) {
+        const err = await connRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch connections');
+      }
+      if (!billRes.ok) {
+        const err = await billRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch bills');
+      }
+
       const connData = await connRes.json();
       const billData = await billRes.json();
-      if (!connRes.ok) throw new Error(connData.error);
-      if (!billRes.ok) throw new Error(billData.error);
+      console.log("Dashboard data:", { connData, billData });
+      
+      // if (!userData.ok) throw new Error(userData.error);
+      // if (!connRes.ok) throw new Error(connData.error);
+      // if (!billRes.ok) throw new Error(billData.error);
       setConnections(connData);
       setBills(billData);
     } catch (err) {
@@ -122,7 +134,7 @@ const ConsumerDashboard = () => {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const totalDue      = bills.filter(b => b.status !== 'Paid').reduce((s, b) => s + parseFloat(b.amount || 0), 0);
   const overdueBills  = bills.filter(b => b.status === 'Overdue');
-  const activeConn    = connections.filter(c => c.connection_status === 'Connected');
+  const activeConn    = connections.filter(c => c.connection_status === 'ACTIVE');
 
   // ── Skeleton loading ───────────────────────────────────────────────────────
   if (loading) return (
@@ -143,7 +155,7 @@ const ConsumerDashboard = () => {
           Consumer Portal
         </div>
         <h1 style={{ fontFamily:fonts.ui, fontSize:24, fontWeight:600, color:t.text, letterSpacing:'-0.4px', marginBottom:4 }}>
-          Good {getGreeting()}, {user?.firstName} 👋
+          Good {getGreeting()}, {user.firstName} 👋
         </h1>
         <p style={{ fontSize:14, color:t.textSub }}>
           Here's an overview of your utility connections and billing.

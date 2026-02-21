@@ -29,7 +29,7 @@ const login = async (req, res) => {
       try {
         const match = await bcrypt.compare(password, hashed);
         if (match) {
-          console.log("Password match for account", { account: u });
+          // console.log("Password match for account", { account: u });
           matchedUser = u;
           break;
         }
@@ -46,7 +46,7 @@ const login = async (req, res) => {
     // 3️⃣ Generate JWT
     const token = jwt.sign(
       {
-        account_id: matchedUser.account_id,
+        person_id: matchedUser.person_id,
         role: matchedUser.account_type
       },
       process.env.JWT_SECRET,
@@ -54,9 +54,9 @@ const login = async (req, res) => {
     );
 
     res.json({
-      success: true,
+      // success: true,
       token,
-      role: matchedUser.account_type,
+      // role: matchedUser.account_type,
     });
 
   } catch (err) {

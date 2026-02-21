@@ -2,14 +2,8 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ROLE_HOME = {
-  employee:     '/employee/dashboard',
-  field_worker: '/field-worker/dashboard',
-  consumer:     '/consumer/dashboard',
-};
-
 const ProtectedRoute = ({ children, roles }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, role, getHomePath, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -25,8 +19,8 @@ const ProtectedRoute = ({ children, roles }) => {
   }
 
   // Wrong role → send them to their correct home
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to={ROLE_HOME[user.role] || '/login'} replace />;
+  if (roles && !roles.includes(role)) {
+    return <Navigate to={getHomePath()} replace />;
   }
 
   return children;

@@ -1,9 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
+  const { authFetch } = useAuth();
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [userRes] = await Promise.all([
+        authFetch(`/api/consumer/me`),
+      ]);
+
+      if (!userRes.ok) {
+      const err = await userRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch user');
+      }
+
+      const userData = await userRes.json();
+      console.log("Dashboard data:", { userData });
+
+      setUser(userData);
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+    } finally {
+      // setLoading(false);
+    }
+  };
+
 
   return (
     <div className="dashboard">
