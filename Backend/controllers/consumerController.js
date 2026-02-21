@@ -242,6 +242,54 @@ const makePayment = async (req, res) => {
   }
 }
 
+const getComplaints = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        c.complaint_id,
+        c.description,
+        c.status,
+        c.complaint_date,
+        c.assignment_date,
+        c.resolution_date,
+        c.remarks,
+        c.connection_id,
+        u.utility_name,
+        LOWER(u.utility_name) AS utility_tag
+      FROM complaint c
+      LEFT JOIN utility_connection uc ON c.connection_id = uc.connection_id
+      LEFT JOIN tariff  t             ON uc.tariff_id   = t.tariff_id
+      LEFT JOIN utility u             ON t.utility_id   = u.utility_id
+      WHERE c.consumer_id = $1
+      ORDER BY c.complaint_date DESC
+    `, [req.user.person_id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch complaints' });
+  }
+}
+
+const submitComplaint = async (req, res) => {
+  const { connection_id, description } = req.body;
+  if (!description)
+    return res.status(400).json({ error: 'Description is required' });
+
+  try {
+    const result = await pool.query(`
+      INSERT INTO complaint (consumer_id, connection_id, description, status, complaint_date)
+      VALUES ($1, $2, $3, 'Pending', CURRENT_TIMESTAMP)
+      RETURNING *
+    `, [req.user.person_id, connection_id || null, description]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit complaint' });
+  }
+}
+
 
 
 module.exports = {
@@ -251,4 +299,6 @@ module.exports = {
     getBillsById,
     getUsageHistory,
     makePayment,
+    getComplaints,
+    submitComplaint,
 };
