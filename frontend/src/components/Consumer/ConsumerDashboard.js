@@ -117,7 +117,7 @@ const ConsumerDashboard = () => {
 
       const connData = await connRes.json();
       const billData = await billRes.json();
-      console.log("Dashboard data:", { connData, billData });
+      // console.log("Dashboard data:", { connData, billData });
       
       // if (!userData.ok) throw new Error(userData.error);
       // if (!connRes.ok) throw new Error(connData.error);

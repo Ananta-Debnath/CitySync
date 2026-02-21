@@ -46,6 +46,7 @@ const UsageHistory = () => {
     try {
       const res  = await authFetch('/api/consumer/usage');
       const data = await res.json();
+      // console.log("Fetched usage data:", data);
       if (!res.ok) throw new Error(data.error);
       setUsage(data);
     } catch (err) { console.error(err); }

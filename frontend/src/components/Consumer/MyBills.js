@@ -23,7 +23,7 @@ const PayModal = ({ bill, onClose, onSuccess, t, isDark }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await authFetch('/api/consumer/payments', {
+      const res = await authFetch('/api/consumer/pay', {
         method: 'POST',
         body: JSON.stringify({
           bill_document_id: bill.bill_document_id,

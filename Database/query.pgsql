@@ -48,3 +48,23 @@ SELECT * FROM BALANCE_TRANSACTION;
 SELECT * FROM PAYMENT;
 
 
+SELECT
+        us.meter_id,
+        us.usage_id,
+        us.unit_used                        AS units_logged,
+        us.time_from,
+        us.time_to,
+        us.tariff_id,
+        us.slab_num,
+        get_rate(us.tariff_id, us.slab_num) AS rate,
+        ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num)) AS cost,
+        u.utility_name,
+        u.unit_of_measurement,
+        LOWER(u.utility_name)               AS utility_tag
+      FROM usage us
+      JOIN utility_connection uc ON us.meter_id  = uc.meter_id
+      JOIN tariff  t              ON uc.tariff_id = t.tariff_id
+      JOIN utility u              ON t.utility_id = u.utility_id
+      WHERE uc.consumer_id = 1
+      ORDER BY us.time_to DESC
+      LIMIT 60
