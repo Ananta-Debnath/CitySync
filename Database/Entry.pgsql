@@ -4,8 +4,17 @@ VALUES (1, 14, 123, 'Main Street');
 INSERT INTO person (person_id, first_name, last_name, date_of_birth, gender, phone_number, national_id, address_id)
 VALUES (1, 'John', 'Doe', '1990-01-01', 'Male', '01234567890', '0123456789', 1);
 
+INSERT INTO account (account_id, person_id, account_type, email, password_hashed)
+VALUES (1, 1, 'consumer', 'john.doe@example.com', '$2b$10$plmFVO2OPM.ggHvR8xqZs.iKW3/7cJgv/TXx9pVduDMnRvj6CSKye');
+
 INSERT INTO consumer (person_id, consumer_type, registration_date)
 VALUES (1, 'Residential', '2025-06-29');
+
+INSERT INTO account (account_id, person_id, account_type, email, password_hashed)
+VALUES (1, 1, 'employee', 'john.doe@example.com', '$2b$10$C5K4waSBYDVRRfrpq35w1umgcdWjbK2Hg2KwoycnA0cOQKPnGZ0uC');
+
+INSERT INTO employee (person_id, role, employee_num, hire_date, employment_status)
+VALUES (1, 'admin', 'EMP001', '2020-01-01', 'Active');
 
 INSERT INTO meter (meter_id, address_id, meter_type)
 VALUES (1, 1, 'Electricity');
@@ -31,12 +40,25 @@ VALUES (1, 'Grameenphone', '01712345678');
 INSERT INTO payment (payment_id, bill_document_id, method_id, payment_amount)
 VALUES (1, 1, 1, 100.00);
 
-INSERT INTO usage (meter_id, tariff_id, slab_num, time_from, time_to, unit_used)
-VALUES (1, 101, 1, '2026-02-11 12:00:00', '2026-02-11 12:59:59', 5);
+-- Two usage records at the start of the current month (first day)
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 2, date_trunc('month', now()) + interval '1 hour', date_trunc('month', now()) + interval '2 hours');
 
-INSERT INTO usage (meter_id, tariff_id, slab_num, time_from, time_to, unit_used)
-VALUES (1, 101, 1, '2026-02-11 14:00:00', '2026-02-11 14:59:59', 1);
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 3, date_trunc('month', now()) + interval '3 hours', date_trunc('month', now()) + interval '4 hours');
 
+-- Two usage records for the previous month (first day)
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 2, date_trunc('month', now()) - interval '5 month' + interval '1 hour', date_trunc('month', now()) - interval '5 month' + interval '2 hours');
+
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 3, date_trunc('month', now()) - interval '5 month' + interval '3 hours', date_trunc('month', now()) - interval '5 month' + interval '4 hours');
+
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 2, date_trunc('month', now()) - interval '9 month' + interval '1 hour', date_trunc('month', now()) - interval '9 month' + interval '2 hours');
+
+INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
+VALUES (1, 101, 1, 3, date_trunc('month', now()) - interval '9 month' + interval '3 hours', date_trunc('month', now()) - interval '9 month' + interval '4 hours');
 
 INSERT INTO meter (meter_id, address_id, meter_type)
 VALUES (2, 1, 'Electricity');

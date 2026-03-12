@@ -4,7 +4,7 @@ const pool = require("../db");
 
 const login = async (req, res) => {
   const { identifier, password } = req.body;
-  console.log("Login attempt", { identifier });
+  // console.log("Login attempt", { identifier });
 
   try {
     const result = await pool.query(

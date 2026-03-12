@@ -25,6 +25,8 @@ const Login = () => {
     setLoading(true);
     try {
       const response = await loginApi({ identifier, password });
+      // login(response.data.token, response.data.user);
+      // navigate(getHomePath(response.data.user.role));
       const role = await login(response.data.token);
       navigate(getHomePath(role));
     } catch (err) {
