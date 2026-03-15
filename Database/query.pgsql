@@ -52,6 +52,6 @@ SELECT * FROM PAYMENT;
 
 
 SELECT setval(
-  pg_get_serial_sequence('payment','payment_id'),
-  (SELECT COALESCE(MAX(payment_id), 0) FROM payment)
+  pg_get_serial_sequence('bill_document','bill_document_id'),
+  (SELECT COALESCE(MAX(bill_document_id), 0) FROM bill_document)
 );

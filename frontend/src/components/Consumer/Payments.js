@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts } from '../../theme';
+import BillDetail from './BillDetail';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const BankIcon    = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -41,7 +42,7 @@ const METHOD_TYPES = {
 const methodSubtitle = (m) => {
   if (m.bank_name)            return `${m.bank_name} ···· ${m.account_num?.slice(-4)}`;
   if (m.provider_name)        return `${m.provider_name} · ${m.mb_phone}`;
-  if (m.google_account_email) return m.google_account_email;
+  if (m.email) return m.email;
   return '';
 };
 
@@ -221,7 +222,7 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch, bankProviders 
               <>
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: t.textSub, display: 'block', marginBottom: 7 }}>Google Account Email</label>
-                  <input type="email" value={form.google_account_email || ''} onChange={e => setForm(f => ({ ...f, google_account_email: e.target.value }))}
+                  <input type="email" value={form.email || ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="you@gmail.com" style={inputStyle}
                     onFocus={e => e.target.style.borderColor = t.primary} onBlur={e => e.target.style.borderColor = t.border} />
                 </div>
@@ -257,11 +258,30 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch, bankProviders 
 };
 
 // ── Payment History Row ───────────────────────────────────────────────────────
-const HistoryRow = ({ p, t, isDark }) => {
+const HistoryRow = ({ p, t, onOpenBill }) => {
   const cfg  = METHOD_TYPES[p.method_name] || METHOD_TYPES.bank;
   const Icon = cfg.icon;
+
+  const billId = p.bill_document_id;
+  const isClickable = Boolean(billId);
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: `1px solid ${t.border}` }}>
+    <button
+      onClick={() => isClickable && onOpenBill(billId)}
+      disabled={!isClickable}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '13px 0',
+        border: 'none',
+        borderBottom: `1px solid ${t.border}`,
+        background: 'transparent',
+        textAlign: 'left',
+        cursor: isClickable ? 'pointer' : 'default',
+      }}
+    >
       <div style={{ width: 34, height: 34, borderRadius: 10, background: cfg.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${cfg.glow}`, flexShrink: 0, color: '#fff' }}>
         <Icon />
       </div>
@@ -273,7 +293,7 @@ const HistoryRow = ({ p, t, isDark }) => {
         <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>৳ {parseFloat(p.payment_amount).toLocaleString()}</div>
         <div style={{ fontSize: 11, color: t.textMuted, fontFamily: fonts.mono }}>{new Date(p.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -289,6 +309,7 @@ const Payments = () => {
   const [showAdd, setShowAdd]   = useState(false);
   const [tab, setTab]           = useState('methods'); // 'methods' | 'history'
   const [toast, setToast]       = useState('');
+  const [detailBillId, setDetailBillId] = useState(null);
   const [bankProviders, setBankProviders] = useState([]);
   const [mobileProviders, setMobileProviders] = useState([]);
 
@@ -330,6 +351,10 @@ const Payments = () => {
       setMethods(m => m.map(x => ({ ...x, is_default: x.method_id === id })));
       showToast('Default method updated');
     } catch { showToast('Failed to update default'); }
+  };
+
+  const handleOpenBill = (billId) => {
+    setDetailBillId(billId);
   };
 
   const totalSpent = history.reduce((s, p) => s + parseFloat(p.payment_amount || 0), 0);
@@ -411,12 +436,13 @@ const Payments = () => {
           <div style={{ textAlign: 'center', padding: '52px 0', color: t.textMuted, fontSize: 13 }}>No payment history yet</div>
         ) : (
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: '4px 20px' }}>
-            {history.map((p, i) => <HistoryRow key={i} p={p} t={t} isDark={isDark} />)}
+            {history.map((p, i) => <HistoryRow key={i} p={p} t={t} onOpenBill={handleOpenBill} />)}
           </div>
         )
       )}
 
       {showAdd && <AddMethodModal onClose={() => setShowAdd(false)} onAdded={fetchAll} t={t} isDark={isDark} authFetch={authFetch} bankProviders={bankProviders} mobileProviders={mobileProviders} />}
+      {detailBillId && <BillDetail billId={detailBillId} onClose={() => setDetailBillId(null)} />}
     </div>
   );
 };

@@ -442,12 +442,12 @@ const getPaymentMethods = async (req, res) => {
 };
 
 const addPaymentMethod = async (req, res) => {
-  const { method_name, bank_name, account_num, provider_name, phone_num, google_account_email, set_default } = req.body;
+  const { method_name, bank_name, account_num, provider_name, phone_num, email, set_default } = req.body;
   if (!method_name) return res.status(400).json({ error: 'method_name is required' });
 
   try {
     const q = `SELECT add_payment_method($1,$2,$3,$4,$5,$6,$7,$8) AS method_id`;
-    const params = [method_name, req.user.person_id, bank_name, account_num, provider_name, phone_num, google_account_email, set_default];
+    const params = [method_name, req.user.person_id, bank_name, account_num, provider_name, phone_num, email, set_default];
     const result = await pool.query(q, params);
     const methodId = result.rows[0].method_id;
     res.status(201).json({ message: 'Payment method added', method_id: methodId });
@@ -616,7 +616,7 @@ const getPaymentHistory = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
-        p.payment_id, p.payment_amount, p.payment_date, p.status,
+        p.payment_id, p.bill_document_id, p.payment_amount, p.payment_date, p.status,
         pm.method_name, pm.is_default,
         bn.bank_name,   b.account_num,
         mbp.provider_name, mb.phone_num AS mb_phone,

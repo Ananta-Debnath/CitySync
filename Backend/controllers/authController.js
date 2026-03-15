@@ -50,7 +50,7 @@ const login = async (req, res) => {
         role: matchedUser.account_type
       },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '6h' }
     );
 
     res.json({

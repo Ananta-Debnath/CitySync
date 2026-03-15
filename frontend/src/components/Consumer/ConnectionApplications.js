@@ -130,6 +130,13 @@ const AppCard = ({ app, t, isDark }) => {
   );
 };
 
+const ModalField = ({ label, t, children }) => (
+  <div style={{ marginBottom: 16 }}>
+    <label style={{ fontSize: 12, fontWeight: 500, color: t.textSub, display: 'block', marginBottom: 7 }}>{label}</label>
+    {children}
+  </div>
+);
+
 // ── New Application Modal ─────────────────────────────────────────────────────
 const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
   const { authFetch } = useAuth();
@@ -151,13 +158,6 @@ const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
       setLoading(false);
     }
   };
-
-  const Field = ({ label, children }) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ fontSize: 12, fontWeight: 500, color: t.textSub, display: 'block', marginBottom: 7 }}>{label}</label>
-      {children}
-    </div>
-  );
 
   const selectStyle = {
     width: '100%', padding: '10px 12px', borderRadius: 10,
@@ -183,7 +183,7 @@ const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
         </div>
 
         {/* Utility type */}
-        <Field label="Utility Type">
+        <ModalField label="Utility Type" t={t}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             {['Electricity', 'Water', 'Gas'].map(u => {
               const key  = u.toLowerCase();
@@ -198,10 +198,10 @@ const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
               );
             })}
           </div>
-        </Field>
+        </ModalField>
 
         {/* Connection type */}
-        <Field label="Connection Type">
+        <ModalField label="Connection Type" t={t}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {['Residential', 'Commercial'].map(type => (
               <button key={type} onClick={() => setForm(f => ({ ...f, requested_connection_type: type }))} style={{ padding: '10px', borderRadius: 10, border: `1.5px solid ${form.requested_connection_type === type ? t.primary : t.border}`, background: form.requested_connection_type === type ? (isDark ? 'rgba(59,111,255,0.12)' : '#EEF2FF') : 'transparent', color: form.requested_connection_type === type ? t.primary : t.textSub, fontSize: 13, fontWeight: 500, fontFamily: fonts.ui, cursor: 'pointer', transition: 'all 0.15s' }}>
@@ -209,10 +209,10 @@ const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
               </button>
             ))}
           </div>
-        </Field>
+        </ModalField>
 
         {/* Address */}
-        <Field label="Installation Address">
+        <ModalField label="Installation Address" t={t}>
           <textarea
             rows={3}
             value={form.address}
@@ -220,16 +220,16 @@ const NewAppModal = ({ onClose, onSuccess, t, isDark }) => {
             placeholder="House number, street, landmark, area..."
             style={{ ...selectStyle, resize: 'none', lineHeight: 1.5 }}
           />
-        </Field>
+        </ModalField>
 
         {/* Priority */}
-        <Field label="Priority">
+        <ModalField label="Priority" t={t}>
           <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={selectStyle}>
             <option value="Normal">Normal</option>
             <option value="High">High</option>
             <option value="Urgent">Urgent</option>
           </select>
-        </Field>
+        </ModalField>
 
         {error && (
           <div style={{ fontSize: 13, color: isDark ? '#F87171' : '#B91C1C', marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: isDark ? '#2D0C0C' : '#FEE2E2' }}>{error}</div>

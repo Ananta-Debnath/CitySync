@@ -111,13 +111,13 @@ const MyConnections = () => {
 
   useEffect(() => { fetchConnections(); }, [fetchConnections]);
 
-  const filtered = filter === 'All' ? connections : connections.filter(c => c.connection_status === filter);
+  const filtered = filter === 'All' ? connections : connections.filter(c => (c.connection_status || '').toLowerCase() === filter.toLowerCase());
 
   const statCards = [
-    { label:'Total',       val: connections.length,                                                          grad:'linear-gradient(135deg,#3B6FFF,#00C4FF)', glow:'rgba(59,111,255,0.25)'  },
-    { label:'Active',      val: connections.filter(c => ['Active','Connected'].includes(c.connection_status)).length, grad:'linear-gradient(135deg,#22C55E,#16A34A)', glow:'rgba(34,197,94,0.25)'   },
-    { label:'Suspended',   val: connections.filter(c => c.connection_status === 'Suspended').length,          grad:'linear-gradient(135deg,#F5A623,#FF6B00)', glow:'rgba(245,166,35,0.25)'  },
-    { label:'Disconnected',val: connections.filter(c => c.connection_status === 'Disconnected').length,       grad:'linear-gradient(135deg,#EF4444,#B91C1C)', glow:'rgba(239,68,68,0.25)'   },
+    { label:'Total',       val: connections.length,                                                                                         grad:'linear-gradient(135deg,#3B6FFF,#00C4FF)', glow:'rgba(59,111,255,0.25)'  },
+    { label:'Active',      val: connections.filter(c => ['active','connected'].includes((c.connection_status || '').toLowerCase())).length, grad:'linear-gradient(135deg,#22C55E,#16A34A)', glow:'rgba(34,197,94,0.25)'   },
+    { label:'Suspended',   val: connections.filter(c => (c.connection_status || '').toLowerCase() === 'suspended').length,                  grad:'linear-gradient(135deg,#F5A623,#FF6B00)', glow:'rgba(245,166,35,0.25)'  },
+    { label:'Disconnected',val: connections.filter(c => (c.connection_status || '').toLowerCase() === 'disconnected').length,               grad:'linear-gradient(135deg,#EF4444,#B91C1C)', glow:'rgba(239,68,68,0.25)'   },
   ];
 
   return (
@@ -155,7 +155,7 @@ const MyConnections = () => {
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding:'7px 16px', borderRadius:100, border:`1.5px solid ${filter===f ? t.primary : t.border}`, background:filter===f ? (isDark?'rgba(59,111,255,0.15)':'#EEF2FF') : 'transparent', color:filter===f ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
             {f}
-            {f !== 'All' && <span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>{connections.filter(c => c.connection_status === f).length}</span>}
+            {f !== 'All' && <span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>{connections.filter(c => (c.connection_status || '').toLowerCase() === f.toLowerCase()).length}</span>}
           </button>
         ))}
       </div>

@@ -14,15 +14,15 @@ Each connection details
 Prepaid??
 
 ---BILLS---
-backend pay system   ---IMPORTANT
+backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
 show prepaids too?
 new payment method during pay
-details -> pay --fix
+details -> pay --fix   ---FIXED, needs to be centered
 
 ---PAYMENTS---
-GPay - show email??
+GPay - show email??  --DONE
 prevent duplicate entry
-history -> click should show details of bill
+history -> click should show details of bill    ---DONE
 
 ---USAGE---
 months button??? --also change duration - 1, 6, 12
@@ -30,7 +30,7 @@ total meter reads is excessive??
 graph text font size too much
 
 ---APPLICATION---
-address typing glitch
+address typing glitch ---DONE
 Change address method
 Have a tick box for my address
 
@@ -38,6 +38,7 @@ Have a tick box for my address
 dont show assigned tick
 
 ---PROFILE---
-change pass text field eye disappear after reclicking text box
+change pass text field eye disappear after reclicking text box  --DONE
 the admin only thing???
+Profile pic
 

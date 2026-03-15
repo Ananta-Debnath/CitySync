@@ -34,7 +34,7 @@ BEGIN
     RETURNING meter_id INTO v_meter_id;
 
     INSERT INTO utility_connection (consumer_id, meter_id, tariff_id, payment_type, connection_type, connection_date, connection_status)
-    VALUES (v_person_id, v_meter_id, 101, 'PREPAID', 'Residential', '2025-06-29', 'ACTIVE')
+    VALUES (v_person_id, v_meter_id, 101, 'PREPAID', 'Residential', '2025-06-29', 'Active')
     RETURNING connection_id INTO v_connection_id;
 
     INSERT INTO residential_connection (connection_id, property_type, is_subsidized)
@@ -77,7 +77,7 @@ BEGIN
     RETURNING meter_id INTO v_meter_id;
 
     INSERT INTO utility_connection (consumer_id, meter_id, tariff_id, payment_type, connection_type, connection_date, connection_status)
-    VALUES (v_person_id, v_meter_id, 101, 'POSTPAID', 'Residential', '2025-06-29', 'ACTIVE')
+    VALUES (v_person_id, v_meter_id, 101, 'POSTPAID', 'Residential', '2025-06-29', 'Active')
     RETURNING connection_id INTO v_connection_id;
 
     INSERT INTO residential_connection (connection_id, property_type, is_subsidized)
