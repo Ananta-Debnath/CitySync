@@ -2,6 +2,7 @@ SELECT * FROM ACCOUNT;
 SELECT * FROM ADDRESS;
 SELECT * FROM BALANCE_TRANSACTION;
 SELECT * FROM BANK;
+SELECT * FROM BANK_NAME;
 SELECT * FROM BILL_DOCUMENT;
 SELECT * FROM BILL_POSTPAID;
 SELECT * FROM COMMERCIAL_CONNECTION;
@@ -18,9 +19,10 @@ SELECT * FROM GAS_UTILITY;
 SELECT * FROM METER;
 SELECT * FROM METER_READING;
 SELECT * FROM MOBILE_BANKING;
+SELECT * FROM MOBILE_BANKING_PROVIDER;
 SELECT * FROM PAYMENT;
 SELECT * FROM PAYMENT_METHOD;
-SELECT * FROM PAYPAL;
+SELECT * FROM GOOGLE_PAY;
 SELECT * FROM PERSON;
 SELECT * FROM PREPAID_ACCOUNT;
 SELECT * FROM PREPAID_STATEMENT;
@@ -48,23 +50,8 @@ SELECT * FROM BALANCE_TRANSACTION;
 SELECT * FROM PAYMENT;
 
 
-SELECT
-        us.meter_id,
-        us.usage_id,
-        us.unit_used                        AS units_logged,
-        us.time_from,
-        us.time_to,
-        us.tariff_id,
-        us.slab_num,
-        get_rate(us.tariff_id, us.slab_num) AS rate,
-        ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num)) AS cost,
-        u.utility_name,
-        u.unit_of_measurement,
-        LOWER(u.utility_name)               AS utility_tag
-      FROM usage us
-      JOIN utility_connection uc ON us.meter_id  = uc.meter_id
-      JOIN tariff  t              ON uc.tariff_id = t.tariff_id
-      JOIN utility u              ON t.utility_id = u.utility_id
-      WHERE uc.consumer_id = 1
-      ORDER BY us.time_to DESC
-      LIMIT 60
+
+SELECT setval(
+  pg_get_serial_sequence('payment','payment_id'),
+  (SELECT COALESCE(MAX(payment_id), 0) FROM payment)
+);

@@ -1,0 +1,43 @@
+FIX AI CONTEXT ISSUE
+
+---REG---
+postal code needed??
+move logic to db???
+
+---DASHBOARD---
+Active??
+Usage tabel??
+
+---CONNECTIONS---
+Status naming
+Each connection details
+Prepaid??
+
+---BILLS---
+backend pay system   ---IMPORTANT
+show prepaids too?
+new payment method during pay
+details -> pay --fix
+
+---PAYMENTS---
+GPay - show email??
+prevent duplicate entry
+history -> click should show details of bill
+
+---USAGE---
+months button??? --also change duration - 1, 6, 12
+total meter reads is excessive??
+graph text font size too much
+
+---APPLICATION---
+address typing glitch
+Change address method
+Have a tick box for my address
+
+---COMPLAINTS---
+dont show assigned tick
+
+---PROFILE---
+change pass text field eye disappear after reclicking text box
+the admin only thing???
+

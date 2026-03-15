@@ -111,7 +111,7 @@ const MethodCard = ({ method, onDelete, onSetDefault, t, isDark }) => {
 };
 
 // ── Add Method Modal ──────────────────────────────────────────────────────────
-const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch }) => {
+const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch, bankProviders = [], mobileProviders = [] }) => {
   const [type, setType]         = useState('mobile_banking');
   const [form, setForm]         = useState({});
   const [setDefault, setDef]    = useState(false);
@@ -177,7 +177,10 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch }) => {
                   <select value={form.bank_name || ''} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
                     style={{ ...inputStyle, cursor: 'pointer' }}>
                     <option value="">Select bank...</option>
-                    {METHOD_TYPES.bank.providers.map(p => <option key={p} value={p}>{p}</option>)}
+                    {(bankProviders.length ? bankProviders : METHOD_TYPES.bank.providers).map((p) => {
+                      const val = typeof p === 'string' ? p : (p.name || p.bank_name || JSON.stringify(p));
+                      return <option key={val} value={val}>{val}</option>;
+                    })}
                   </select>
                 </div>
                 <div style={{ marginBottom: 20 }}>
@@ -194,12 +197,15 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch }) => {
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: t.textSub, display: 'block', marginBottom: 7 }}>Provider</label>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {METHOD_TYPES.mobile_banking.providers.map(p => (
-                      <button key={p} onClick={() => setForm(f => ({ ...f, provider_name: p }))}
-                        style={{ padding: '7px 14px', borderRadius: 100, border: `1.5px solid ${form.provider_name === p ? t.primary : t.border}`, background: form.provider_name === p ? (isDark ? 'rgba(59,111,255,0.12)' : '#EEF2FF') : 'transparent', color: form.provider_name === p ? t.primary : t.textSub, fontSize: 12, fontWeight: 500, fontFamily: fonts.ui, cursor: 'pointer', transition: 'all 0.15s' }}>
-                        {p}
-                      </button>
-                    ))}
+                    {(mobileProviders.length ? mobileProviders : METHOD_TYPES.mobile_banking.providers).map((p) => {
+                      const name = typeof p === 'string' ? p : (p.name || p.provider_name || JSON.stringify(p));
+                      return (
+                        <button key={name} onClick={() => setForm(f => ({ ...f, provider_name: name }))}
+                          style={{ padding: '7px 14px', borderRadius: 100, border: `1.5px solid ${form.provider_name === name ? t.primary : t.border}`, background: form.provider_name === name ? (isDark ? 'rgba(59,111,255,0.12)' : '#EEF2FF') : 'transparent', color: form.provider_name === name ? t.primary : t.textSub, fontSize: 12, fontWeight: 500, fontFamily: fonts.ui, cursor: 'pointer', transition: 'all 0.15s' }}>
+                          {name}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div style={{ marginBottom: 20 }}>
@@ -283,19 +289,25 @@ const Payments = () => {
   const [showAdd, setShowAdd]   = useState(false);
   const [tab, setTab]           = useState('methods'); // 'methods' | 'history'
   const [toast, setToast]       = useState('');
+  const [bankProviders, setBankProviders] = useState([]);
+  const [mobileProviders, setMobileProviders] = useState([]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [mRes, hRes] = await Promise.all([
+      const [mRes, hRes, bRes, pRes] = await Promise.all([
         authFetch('/api/consumer/payment-methods'),
         authFetch('/api/consumer/payment-history'),
+        authFetch('/api/public/banks'),
+        authFetch('/api/public/mobile-banking-providers'),
       ]);
-      const [mData, hData] = await Promise.all([mRes.json(), hRes.json()]);
+      const [mData, hData, bData, pData] = await Promise.all([mRes.json(), hRes.json(), bRes.json(), pRes.json()]);
       setMethods(Array.isArray(mData) ? mData : []);
       setHistory(Array.isArray(hData) ? hData : []);
+      setBankProviders(Array.isArray(bData) ? bData : []);
+      setMobileProviders(Array.isArray(pData) ? pData : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, [authFetch]);
@@ -404,7 +416,7 @@ const Payments = () => {
         )
       )}
 
-      {showAdd && <AddMethodModal onClose={() => setShowAdd(false)} onAdded={fetchAll} t={t} isDark={isDark} authFetch={authFetch} />}
+      {showAdd && <AddMethodModal onClose={() => setShowAdd(false)} onAdded={fetchAll} t={t} isDark={isDark} authFetch={authFetch} bankProviders={bankProviders} mobileProviders={mobileProviders} />}
     </div>
   );
 };

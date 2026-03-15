@@ -179,69 +179,6 @@ const getUsageHistory = async (req, res) => {
   }
 }
 
-const makePayment = async (req, res) => {
-  const { bill_document_id, payment_amount, payment_method, provider_name, phone_num, account_num } = req.body;
-
-  if (!bill_document_id || !payment_amount || !payment_method)
-    return res.status(400).json({ error: 'bill_document_id, payment_amount, and payment_method are required' });
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Verify bill belongs to this consumer and isn't already paid
-    const billCheck = await client.query(`
-      SELECT bd.bill_document_id, bd.bill_status, uc.consumer_id
-      FROM bill_document bd
-      JOIN utility_connection uc ON bd.connection_id = uc.connection_id
-      WHERE bd.bill_document_id = $1 AND uc.consumer_id = $2 AND bd.bill_status NOT ILIKE 'PAID'
-    `, [bill_document_id, req.user.person_id]);
-
-    if (billCheck.rows.length === 0)
-      return res.status(404).json({ error: 'Bill not found' });
-    if (billCheck.rows[0].bill_status.toLowerCase() === 'paid')
-      return res.status(400).json({ error: 'Bill already paid' });
-
-    // Payment method
-    const methodRes = await client.query(
-      `INSERT INTO payment_method (method_name) VALUES ($1) RETURNING method_id`,
-      [payment_method]
-    );
-    const methodId = methodRes.rows[0].method_id;
-
-    if (payment_method === 'mobile_banking') {
-      await client.query(
-        `INSERT INTO mobile_banking (method_id, provider_name, phone_num) VALUES ($1, $2, $3)`,
-        [methodId, provider_name || 'bKash', phone_num]
-      );
-    } else if (payment_method === 'bank') {
-      await client.query(
-        `INSERT INTO bank (method_id, bank_name, account_num) VALUES ($1, $2, $3)`,
-        [methodId, provider_name || 'Unknown', account_num || phone_num]
-      );
-    }
-
-    // Insert payment — trigger fires and sets bill_document.bill_status = 'PAID'
-    const paymentRes = await client.query(`
-      INSERT INTO payment (bill_document_id, method_id, payment_amount, payment_date, status)
-      VALUES ($1, $2, $3, CURRENT_TIMESTAMP, 'Completed')
-      RETURNING payment_id
-    `, [bill_document_id, methodId, payment_amount]);
-
-    await client.query('COMMIT');
-    res.status(201).json({
-      message: 'Payment successful',
-      payment_id: paymentRes.rows[0].payment_id,
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error(err);
-    res.status(500).json({ error: 'Payment failed' });
-  } finally {
-    client.release();
-  }
-}
-
 const getComplaints = async (req, res) => {
   try {
     const result = await pool.query(`
@@ -437,16 +374,16 @@ const changePassword = async (req, res) => {
   const bcrypt = require('bcrypt');
   try {
     const result = await pool.query(
-      `SELECT password_hashed FROM account WHERE person_id = $1`,
-      [req.user.userId]
+      `SELECT password_hashed FROM account WHERE person_id = $1 AND account_type = $2`,
+      [req.user.person_id, req.user.role]
     );
     const valid = await bcrypt.compare(current_password, result.rows[0].password_hashed);
     if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
 
     const hashed = await bcrypt.hash(new_password, 10);
     await pool.query(
-      `UPDATE account SET password_hashed = $1 WHERE person_id = $2`,
-      [hashed, req.user.person_id]
+      `UPDATE account SET password_hashed = $1 WHERE person_id = $2 AND account_type = $3`,
+      [hashed, req.user.person_id, req.user.role]
     );
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
@@ -462,15 +399,15 @@ const deactivateAccount = async (req, res) => {
   const bcrypt = require('bcrypt');
   try {
     const result = await pool.query(
-      `SELECT password_hashed FROM account WHERE person_id = $1`,
-      [req.user.person_id]
+      `SELECT password_hashed FROM account WHERE person_id = $1 AND account_type = $2`,
+      [req.user.person_id, req.user.role]
     );
     const valid = await bcrypt.compare(password, result.rows[0].password_hashed);
     if (!valid) return res.status(401).json({ error: 'Incorrect password' });
 
     await pool.query(
-      `UPDATE account SET is_active = FALSE WHERE person_id = $1`,
-      [req.user.person_id]
+      `UPDATE account SET is_active = FALSE WHERE person_id = $1 AND account_type = $2`,
+      [req.user.person_id, req.user.role]
     );
     res.json({ message: 'Account deactivated' });
   } catch (err) {
@@ -484,17 +421,20 @@ const getPaymentMethods = async (req, res) => {
     const result = await pool.query(`
       SELECT
         pm.method_id, pm.method_name, pm.is_default,
-        b.bank_name,   b.account_num,
-        mb.provider_name, mb.phone_num AS mb_phone,
+        bn.bank_name, b.account_num,
+        mbp.provider_name, mb.phone_num AS mb_phone,
         gp.email, gp.phone_num AS gp_phone
       FROM payment_method pm
-      LEFT JOIN bank          b  ON pm.method_id = b.method_id
-      LEFT JOIN mobile_banking mb ON pm.method_id = mb.method_id
+      LEFT JOIN bank                    b   ON pm.method_id = b.method_id
+      LEFT JOIN bank_name               bn  ON b.bank_id = bn.bank_id
+      LEFT JOIN mobile_banking          mb  ON pm.method_id = mb.method_id
+      LEFT JOIN mobile_banking_provider mbp ON mb.provider_id = mbp.provider_id
       LEFT JOIN google_pay    gp ON pm.method_id = gp.method_id
       WHERE pm.consumer_id = $1
       ORDER BY pm.is_default DESC, pm.method_id ASC
-    `, [req.user.userId]);
+    `, [req.user.person_id]);
     res.json(result.rows);
+    // console.log(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch payment methods' });
@@ -505,55 +445,67 @@ const addPaymentMethod = async (req, res) => {
   const { method_name, bank_name, account_num, provider_name, phone_num, google_account_email, set_default } = req.body;
   if (!method_name) return res.status(400).json({ error: 'method_name is required' });
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    // If setting as default, unset existing default
-    if (set_default) {
-      await client.query(
-        `UPDATE payment_method SET is_default = FALSE WHERE consumer_id = $1`,
-        [req.user.userId]
-      );
-    }
-
-    const methodRes = await client.query(
-      `INSERT INTO payment_method (method_name, consumer_id, is_default) VALUES ($1, $2, $3) RETURNING method_id`,
-      [method_name, req.user.userId, set_default || false]
-    );
-    const methodId = methodRes.rows[0].method_id;
-
-    if (method_name === 'bank') {
-      if (!bank_name || !account_num) throw new Error('bank_name and account_num are required');
-      await client.query(
-        `INSERT INTO bank (method_id, bank_name, account_num) VALUES ($1, $2, $3)`,
-        [methodId, bank_name, account_num]
-      );
-    } else if (method_name === 'mobile_banking') {
-      if (!provider_name || !phone_num) throw new Error('provider_name and phone_num are required');
-      await client.query(
-        `INSERT INTO mobile_banking (method_id, provider_name, phone_num) VALUES ($1, $2, $3)`,
-        [methodId, provider_name, phone_num]
-      );
-    } else if (method_name === 'google_pay') {
-      if (!google_account_email) throw new Error('google_account_email is required');
-      await client.query(
-        `INSERT INTO google_pay (method_id, email, phone_num) VALUES ($1, $2, $3)`,
-        [methodId, google_account_email, phone_num || null]
-      );
-    } else {
-      throw new Error('Invalid method_name');
-    }
-
-    await client.query('COMMIT');
+    const q = `SELECT add_payment_method($1,$2,$3,$4,$5,$6,$7,$8) AS method_id`;
+    const params = [method_name, req.user.person_id, bank_name, account_num, provider_name, phone_num, google_account_email, set_default];
+    const result = await pool.query(q, params);
+    const methodId = result.rows[0].method_id;
     res.status(201).json({ message: 'Payment method added', method_id: methodId });
-  } catch (err) {
-    await client.query('ROLLBACK');
+  } catch (error) {
     console.error(err);
     res.status(400).json({ error: err.message || 'Failed to add payment method' });
-  } finally {
-    client.release();
   }
+  
+
+  // const client = await pool.connect();
+  // try {
+  //   await client.query('BEGIN');
+
+  //   // If setting as default, unset existing default
+  //   if (set_default) {
+  //     await client.query(
+  //       `UPDATE payment_method SET is_default = FALSE WHERE consumer_id = $1`,
+  //       [req.user.person_id]
+  //     );
+  //   }
+
+  //   const methodRes = await client.query(
+  //     `INSERT INTO payment_method (method_name, consumer_id, is_default) VALUES ($1, $2, $3) RETURNING method_id`,
+  //     [method_name, req.user.person_id, set_default || false]
+  //   );
+  //   const methodId = methodRes.rows[0].method_id;
+
+  //   if (method_name === 'bank') {
+  //     if (!bank_name || !account_num) throw new Error('bank_name and account_num are required');
+  //     await client.query(
+  //       `INSERT INTO bank (method_id, bank_id, account_num) VALUES ($1, (SELECT bank_id FROM bank_name WHERE bank_name = $2), $3)`,
+  //       [methodId, bank_name, account_num]
+  //     );
+  //   } else if (method_name === 'mobile_banking') {
+  //     if (!provider_name || !phone_num) throw new Error('provider_name and phone_num are required');
+  //     await client.query(
+  //       `INSERT INTO mobile_banking (method_id, provider_id, phone_num) VALUES ($1, (SELECT provider_id FROM mobile_banking_provider WHERE provider_name = $2), $3)`,
+  //       [methodId, provider_name, phone_num]
+  //     );
+  //   } else if (method_name === 'google_pay') {
+  //     if (!google_account_email) throw new Error('google_account_email is required');
+  //     await client.query(
+  //       `INSERT INTO google_pay (method_id, email, phone_num) VALUES ($1, $2, $3)`,
+  //       [methodId, google_account_email, phone_num || null]
+  //     );
+  //   } else {
+  //     throw new Error('Invalid method_name');
+  //   }
+
+  //   await client.query('COMMIT');
+  //   res.status(201).json({ message: 'Payment method added', method_id: methodId });
+  // } catch (err) {
+  //   await client.query('ROLLBACK');
+  //   console.error(err);
+  //   res.status(400).json({ error: err.message || 'Failed to add payment method' });
+  // } finally {
+  //   client.release();
+  // }
 }
 
 const setDefaultPaymentMethod = async (req, res) => {
@@ -562,11 +514,11 @@ const setDefaultPaymentMethod = async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `UPDATE payment_method SET is_default = FALSE WHERE consumer_id = $1`,
-      [req.user.userId]
+      [req.user.person_id]
     );
     await client.query(
       `UPDATE payment_method SET is_default = TRUE WHERE method_id = $1 AND consumer_id = $2`,
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.person_id]
     );
     await client.query('COMMIT');
     res.json({ message: 'Default updated' });
@@ -583,7 +535,7 @@ const deletePaymentMethod = async (req, res) => {
     const result = await pool.query(
       // `DELETE FROM payment_method WHERE method_id = $1 AND consumer_id = $2 RETURNING method_id`,
       `UPDATE payment_method SET consumer_id = NULL WHERE method_id = $1 AND consumer_id = $2 RETURNING method_id`,
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.person_id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Payment method not found' });
@@ -594,14 +546,80 @@ const deletePaymentMethod = async (req, res) => {
   }
 }
 
+const makePayment = async (req, res) => {
+  // const { bill_document_id, payment_amount, payment_method, provider_name, phone_num, account_num } = req.body;
+  // if (!bill_document_id || !payment_amount || !payment_method)
+  //   return res.status(400).json({ error: 'bill_document_id, payment_amount, and payment_method are required' });
+
+  const { bill_document_id, method_id, payment_amount } = req.body;
+  if (!bill_document_id || !method_id || !payment_amount)
+    return res.status(400).json({ error: 'bill_document_id, method_id and payment_amount are required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verify bill belongs to this consumer and isn't already paid
+    const billCheck = await client.query(`
+      SELECT bd.bill_document_id, bd.bill_status, uc.consumer_id
+      FROM bill_document bd
+      JOIN utility_connection uc ON bd.connection_id = uc.connection_id
+      WHERE bd.bill_document_id = $1 AND uc.consumer_id = $2 AND bd.bill_status NOT ILIKE 'PAID'
+    `, [bill_document_id, req.user.person_id]);
+
+    if (billCheck.rows.length === 0)
+      return res.status(404).json({ error: 'Bill not found' });
+    if (billCheck.rows[0].bill_status.toLowerCase() === 'paid')
+      return res.status(400).json({ error: 'Bill already paid' });
+
+    // // Payment method
+    // const methodRes = await client.query(
+    //   `INSERT INTO payment_method (method_name) VALUES ($1) RETURNING method_id`,
+    //   [payment_method]
+    // );
+    // const methodId = methodRes.rows[0].method_id;
+
+    // if (payment_method === 'mobile_banking') {
+    //   await client.query(
+    //     `INSERT INTO mobile_banking (method_id, provider_name, phone_num) VALUES ($1, $2, $3)`,
+    //     [methodId, provider_name || 'bKash', phone_num]
+    //   );
+    // } else if (payment_method === 'bank') {
+    //   await client.query(
+    //     `INSERT INTO bank (method_id, bank_name, account_num) VALUES ($1, $2, $3)`,
+    //     [methodId, provider_name || 'Unknown', account_num || phone_num]
+    //   );
+    // }
+
+    // Insert payment — trigger fires and sets bill_document.bill_status = 'PAID'
+    const paymentRes = await client.query(`
+      INSERT INTO payment (bill_document_id, method_id, payment_amount, payment_date, status)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP, 'Completed')
+      RETURNING payment_id
+    `, [bill_document_id, method_id, payment_amount]);
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      message: 'Payment successful',
+      payment_id: paymentRes.rows[0].payment_id,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Payment failed' });
+  } finally {
+    client.release();
+  }
+}
+
 const getPaymentHistory = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
         p.payment_id, p.payment_amount, p.payment_date, p.status,
         pm.method_name, pm.is_default,
-        b.bank_name,   b.account_num,
-        mb.provider_name, mb.phone_num AS mb_phone,
+        bn.bank_name,   b.account_num,
+        mbp.provider_name, mb.phone_num AS mb_phone,
         gp.email,
         bd.total_amount, bd.bill_generation_date,
         LOWER(u.utility_name) AS utility_name
@@ -611,13 +629,15 @@ const getPaymentHistory = async (req, res) => {
       JOIN utility_connection uc ON bd.connection_id = uc.connection_id
       JOIN tariff           t  ON uc.tariff_id       = t.tariff_id
       JOIN utility          u  ON t.utility_id       = u.utility_id
-      LEFT JOIN bank          b  ON pm.method_id = b.method_id
-      LEFT JOIN mobile_banking mb ON pm.method_id = mb.method_id
-      LEFT JOIN google_pay    gp ON pm.method_id = gp.method_id
+      LEFT JOIN bank                    b   ON pm.method_id = b.method_id
+      LEFT JOIN bank_name               bn  ON b.bank_id = bn.bank_id
+      LEFT JOIN mobile_banking          mb  ON pm.method_id = mb.method_id
+      LEFT JOIN mobile_banking_provider mbp ON mb.provider_id = mbp.provider_id
+      LEFT JOIN google_pay              gp  ON pm.method_id = gp.method_id
       WHERE uc.consumer_id = $1
       ORDER BY p.payment_date DESC
       LIMIT 50
-    `, [req.user.userId]);
+    `, [req.user.person_id]);
     res.json(result.rows);
   } catch (err) {
     console.error(err);

@@ -2,8 +2,9 @@ import axios from 'axios';
 
 // API base URL: read from environment with sensible fallbacks.
 // For Create React App use `REACT_APP_API_URL`; for Vite use `VITE_API_URL`.
-const API_URL =
-  process.env.REACT_APP_API_URL || process.env.VITE_API_URL || 'http://localhost:5000/api';
+var API_URL = process.env.REACT_APP_API_URL || process.env.VITE_API_URL || 'http://localhost:5000';
+
+API_URL = API_URL + (API_URL.endsWith('/api') ? '' : '/api'); // Ensure it ends with /api
 
 const api = axios.create({
   baseURL: API_URL,

@@ -89,9 +89,9 @@ const register = async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  email = email.toLowerCase().trim();
+  const email_lower = email.toLowerCase().trim();
 
-  // Check if region exists, create if not
+  // Check if region exists, create if not -- no create
   // Find regions that match the postal code and verify the provided region name
   let regionResult = await pool.query(
     'SELECT region_id, region_name FROM region WHERE postal_code = $1',
@@ -139,7 +139,7 @@ const register = async (req, res) => {
     // Insert account
     await client.query(
       'INSERT INTO account (person_id, account_type, email, password_hashed) VALUES ($1, $2, $3, $4)',
-      [personId, 'consumer', email, hashedPassword]
+      [personId, 'consumer', email_lower, hashedPassword]
     );
 
     await client.query('COMMIT');
@@ -162,28 +162,5 @@ const register = async (req, res) => {
     client.release();
   }
 }
-
-// // Create account route
-// app.post("/register", async (req, res) => {
-// const { person_id, identifier, password, accountType} = req.body;
-
-// if (!person_id || !identifier || !password || !accountType) {
-//     return res.status(400).json({ error: "Missing person_id, identifier, password, or account type" });
-// }
-
-// try {
-//     const hashed = await bcrypt.hash(password, 10);
-//     const result = await pool.query(
-//     "INSERT INTO ACCOUNT (person_id, account_type, email, password_hashed, is_active, created_at) VALUES ($1, $2, $3, $4, TRUE, NOW()) RETURNING account_id, email, account_type",
-//     [person_id, accountType, identifier, hashed]
-//     );
-
-//     const created = result.rows[0];
-//     res.status(201).json({ accountId: created.account_id, identifier: created.email, accountType: created.account_type });
-// } catch (err) {
-//     console.error("Error creating account", err.message);
-//     res.status(500).json({ error: "Database error" });
-// }
-// });
 
 module.exports = { login, register };

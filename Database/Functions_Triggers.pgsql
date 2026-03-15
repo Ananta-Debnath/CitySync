@@ -9,6 +9,7 @@
 
 
 
+-- FUNCTIONS
 CREATE OR REPLACE FUNCTION get_rate(p_tariff_id INTEGER, p_slab_num INTEGER) RETURNS NUMERIC(10, 2)
 LANGUAGE plpgsql
 AS $$
@@ -74,7 +75,61 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION add_payment_method(
+  p_method_name text,
+  p_consumer_id integer DEFAULT NULL,
+  p_bank_name text DEFAULT NULL,
+  p_account_num text DEFAULT NULL,
+  p_provider_name text DEFAULT NULL,
+  p_phone_num text DEFAULT NULL,
+  p_google_account_email text DEFAULT NULL,
+  p_set_default boolean DEFAULT FALSE
+) RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_method_id integer;
+  v_bank_id integer;
+  v_provider_id integer;
+BEGIN
+  IF p_set_default THEN
+    UPDATE payment_method SET is_default = FALSE WHERE consumer_id = p_consumer_id;
+  END IF;
 
+  INSERT INTO payment_method(method_name, consumer_id, is_default)
+    VALUES (p_method_name, p_consumer_id, COALESCE(p_set_default, FALSE))
+    RETURNING method_id INTO v_method_id;
+
+  IF p_method_name = 'bank' THEN
+    SELECT bank_id INTO v_bank_id FROM bank_name WHERE bank_name = p_bank_name;
+    IF v_bank_id IS NULL THEN
+      RAISE EXCEPTION 'Bank not found: %', p_bank_name USING ERRCODE = 'P0001';
+    END IF;
+    INSERT INTO bank(method_id, bank_id, account_num) VALUES (v_method_id, v_bank_id, p_account_num);
+
+  ELSIF p_method_name = 'mobile_banking' THEN
+    SELECT provider_id INTO v_provider_id FROM mobile_banking_provider WHERE provider_name = p_provider_name;
+    IF v_provider_id IS NULL THEN
+      RAISE EXCEPTION 'Provider not found: %', p_provider_name USING ERRCODE = 'P0002';
+    END IF;
+    INSERT INTO mobile_banking(method_id, provider_id, phone_num) VALUES (v_method_id, v_provider_id, p_phone_num);
+
+  ELSIF p_method_name = 'google_pay' THEN
+    INSERT INTO google_pay(method_id, email, phone_num) VALUES (v_method_id, p_google_account_email, p_phone_num);
+
+  ELSE
+    RAISE EXCEPTION 'Invalid method_name: %', p_method_name USING ERRCODE = 'P0003';
+  END IF;
+
+  RETURN v_method_id;
+EXCEPTION
+  WHEN others THEN
+    -- bubble up so app can map errors
+    RAISE;
+END;
+$$;
+
+-- TRIGGERS
 -- AFTER INSERT trigger to create prepaid account for new prepaid connection
 CREATE OR REPLACE FUNCTION create_prepaid_account_after_insert() RETURNS trigger
 LANGUAGE plpgsql
