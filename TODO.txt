@@ -1,23 +1,28 @@
-FIX AI CONTEXT ISSUE
+FIX AI CONTEXT ISSUE  --Fixed
 
 ---REG---
 postal code needed??
 move logic to db???
 
 ---DASHBOARD---
+Include connection name
 Active??
 Usage tabel??
 
 ---CONNECTIONS---
+Include connection name
 Status naming
 Each connection details
 Prepaid??
+New conn utility type - LV, MV, HV??
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
 show prepaids too?
 new payment method during pay
 details -> pay --fix   ---FIXED, needs to be centered
+reload after payment ---DONE
+color code for paid, unpaid
 
 ---PAYMENTS---
 GPay - show email??  --DONE
@@ -25,9 +30,12 @@ prevent duplicate entry
 history -> click should show details of bill    ---DONE
 
 ---USAGE---
-months button??? --also change duration - 1, 6, 12
+months button???   ---DONE
 total meter reads is excessive??
 graph text font size too much
+bar chart y axis  ---DONE
+Move graphs side by side?
+Have day mode in line graph??
 
 ---APPLICATION---
 address typing glitch ---DONE

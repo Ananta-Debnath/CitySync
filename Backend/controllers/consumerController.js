@@ -22,13 +22,15 @@ const getConnections = async (req, res) => {
     const result = await pool.query(`
       SELECT
         uc.connection_id,
+        uc.connection_name,
         uc.connection_status,
         uc.connection_date,
         uc.payment_type,
         uc.connection_type,
+        u.utility_type,
         u.utility_name,
         u.unit_of_measurement,
-        LOWER(u.utility_name)   AS utility_tag,
+        LOWER(u.utility_type)   AS utility_tag,
         t.tariff_name,
         t.billing_method,
         a.house_num,
@@ -148,29 +150,92 @@ const getBillsById = async (req, res) => {
 }
 
 const getUsageHistory = async (req, res) => {
+  // Supports granularity: 'month' (default) or 'day'.
+  // If granularity=day, caller must provide `month` as 'YYYY-MM'.
+  const granularity = (req.query.granularity || 'month').toLowerCase();
+  const connectionId = req.query.connection_id || null;
+
   try {
+    if (granularity === 'day') {
+      const monthStr = req.query.month; // expected format: 'YYYY-MM'
+      if (!monthStr)
+        return res.status(400).json({ error: 'month query param (YYYY-MM) is required for day granularity' });
+
+      // Build a date for the first day of the month
+      const monthStart = `${monthStr}-01`;
+      // Prevent asking for a future month
+      const monthStartDate = new Date(monthStart);
+      const today = new Date();
+      if (isNaN(monthStartDate.getTime()))
+        return res.status(400).json({ error: 'month must be in YYYY-MM format' });
+      if (monthStartDate > today)
+        return res.status(400).json({ error: 'month cannot be in the future' });
+
+      const sql = `
+        -- Usage grouped by day for specified month (include days with zero usage)
+        WITH days AS (
+          SELECT generate_series(
+            date_trunc('day', $3::date),
+            LEAST((date_trunc('month', $3::date) + INTERVAL '1 month' - INTERVAL '1 day')::date, CURRENT_DATE),
+            INTERVAL '1 day'
+          ) AS day
+        ),
+        usage_filtered AS (
+          SELECT us.*
+          FROM usage us
+          JOIN utility_connection uc ON us.meter_id = uc.meter_id
+          WHERE uc.consumer_id = $1 AND uc.connection_id = $2
+        )
+        SELECT
+          to_char(d.day, 'YYYY-MM-DD') AS day,
+          to_char(d.day, 'DD Mon') AS day_name,
+          COALESCE(SUM(us.unit_used), 0) AS units_logged,
+          COALESCE(SUM(ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num))), 0) AS cost,
+          MAX(u.unit_of_measurement) AS unit_of_measurement
+        FROM days d
+        LEFT JOIN usage_filtered us
+          ON date_trunc('day', us.time_to) = d.day
+        LEFT JOIN tariff t ON us.tariff_id = t.tariff_id
+        LEFT JOIN utility u ON t.utility_id = u.utility_id
+        GROUP BY d.day
+        ORDER BY d.day ASC;
+      `;
+
+      const params = [req.user.person_id, connectionId, monthStart];
+      const result = await pool.query(sql, params);
+      return res.json(result.rows);
+    }
+
+    // Default: month granularity (last 24 months)
     const result = await pool.query(`
+      -- Last 24 months usage per month (includes months with zero usage)
+      WITH months AS (
+        SELECT generate_series(
+          date_trunc('month', CURRENT_DATE) - INTERVAL '23 months',
+          date_trunc('month', CURRENT_DATE),
+          INTERVAL '1 month'
+        ) AS month_start
+      ),
+      usage_filtered AS (
+        SELECT us.*
+        FROM usage us
+        JOIN utility_connection uc ON us.meter_id = uc.meter_id
+        WHERE uc.consumer_id = $1 AND uc.connection_id = $2
+      )
       SELECT
-        us.meter_id,
-        us.usage_id,
-        us.unit_used                        AS units_logged,
-        us.time_from,
-        us.time_to,
-        us.tariff_id,
-        us.slab_num,
-        get_rate(us.tariff_id, us.slab_num) AS rate,
-        ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num)) AS cost,
-        u.utility_name,
-        u.unit_of_measurement,
-        LOWER(u.utility_name)               AS utility_tag
-      FROM usage us
-      JOIN utility_connection uc ON us.meter_id  = uc.meter_id
-      JOIN tariff  t             ON uc.tariff_id = t.tariff_id
-      JOIN utility u             ON t.utility_id = u.utility_id
-      WHERE uc.consumer_id = $1
-      ORDER BY us.time_to DESC
-      LIMIT 60
-    `, [req.user.person_id]);
+        to_char(m.month_start, 'YYYY-MM') AS month,
+        to_char(m.month_start, 'Mon YY') AS month_name,
+        COALESCE(SUM(us.unit_used), 0) AS units_logged,
+        COALESCE(SUM(ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num))), 0) AS cost,
+        MAX(u.unit_of_measurement) AS unit_of_measurement
+      FROM months m
+      LEFT JOIN usage_filtered us
+        ON date_trunc('month', us.time_to) = m.month_start
+      LEFT JOIN tariff t ON us.tariff_id = t.tariff_id
+      LEFT JOIN utility u ON t.utility_id = u.utility_id
+      GROUP BY m.month_start
+      ORDER BY m.month_start ASC;
+    `, [req.user.person_id, connectionId]);
 
     res.json(result.rows);
   } catch (err) {
@@ -647,9 +712,9 @@ const getPaymentHistory = async (req, res) => {
 
 
 module.exports = {
+  getPerson,
   getConnections,
   getBills,
-  getPerson,
   getBillsById,
   getUsageHistory,
   makePayment,

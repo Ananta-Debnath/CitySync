@@ -15,7 +15,7 @@ const Row = ({ label, value, mono, t }) => (
   </div>
 );
 
-const BillDetail = ({ billId, onClose }) => {
+const BillDetail = ({ billId, onClose, onBillPaid }) => {
   const { id: routeId } = useParams();
   const { authFetch } = useAuth();
   const { isDark } = useTheme();
@@ -48,7 +48,8 @@ const BillDetail = ({ billId, onClose }) => {
 
   const handlePaySuccess = () => {
     setShowPayModal(false);
-    fetchBill();
+    if (onBillPaid) onBillPaid();
+    closeDetail();
   };
 
   if (loading) return (

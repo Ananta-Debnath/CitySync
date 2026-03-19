@@ -210,7 +210,7 @@ const MyBills = () => {
       )}
 
       {payingBill && <PayBillModal bill={payingBill} onClose={() => setPayingBill(null)} onSuccess={handlePaySuccess} t={t} isDark={isDark} />}
-      {detailBillId && <BillDetail billId={detailBillId} onClose={() => setDetailBillId(null)} />}
+      {detailBillId && <BillDetail billId={detailBillId} onClose={() => setDetailBillId(null)} onBillPaid={handlePaySuccess} />}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { fonts } from '../theme';
 
 // ─── DONUT CHART ──────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ export const ChartLegend = ({ segments, t }) => (
 );
 
 // ─── LINE CHART ───────────────────────────────────────────────────────────────
-export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200 }) => {
+export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200, curved = false }) => {
   const [hovered, setHovered] = useState(null);
 
   if (!lines || lines.length === 0 || lines[0].points.length === 0) {
@@ -96,6 +96,12 @@ export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200 }) =>
   const yPos = (v) => PAD.top  + innerH - (v / maxVal) * innerH;
 
   const bezierFor = (pts) => {
+    if (!pts || pts.length === 0) return '';
+    if (!curved) {
+      // straight segments
+      return pts.map((p, i) => (i === 0 ? `M ${xPos(i)} ${yPos(p.value)}` : `L ${xPos(i)} ${yPos(p.value)}`)).join(' ');
+    }
+    // curved (bezier) segments
     if (pts.length < 2) return `M ${xPos(0)} ${yPos(pts[0]?.value || 0)}`;
     return pts.map((p, i) => {
       if (i === 0) return `M ${xPos(i)} ${yPos(p.value)}`;
@@ -157,7 +163,7 @@ export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200 }) =>
           );
         })}
 
-        {/* Tooltip — flips below dot when near top of chart */}
+        {/* Tooltip — clamped horizontally so it never exits the SVG viewport */}
         {hovered && (() => {
           const line  = lines[hovered.lineIdx];
           const pt    = line.points[hovered.pointIdx];
@@ -166,7 +172,6 @@ export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200 }) =>
           const boxW  = 90;
           const boxH  = 32;
           const GAP   = 10;
-          // Flip below when too close to top
           const above = dotY - GAP - boxH;
           const below = dotY + GAP;
           const ty    = above < PAD.top ? below : above;
@@ -204,51 +209,122 @@ export const LineChart = ({ lines, t, isDark, unit = 'units', height = 200 }) =>
 };
 
 // ─── BAR CHART ────────────────────────────────────────────────────────────────
-// Supports onClick on bars for drill-down
+// The tooltip is rendered at the chart root (not inside each bar) to completely
+// avoid any overflow clipping from parent containers.
 export const BarChart = ({ data, gradient, glow, unit, t, isDark, onBarClick, activeBar }) => {
-  const [hovered, setHovered] = useState(null);
+  const [hovered, setHovered]       = useState(null);
+  const [tooltipPos, setTooltipPos] = useState(null);
+  const chartRef = useRef(null);
+
   if (!data || data.length === 0) return (
     <div style={{ textAlign:'center', padding:'48px 0', color:t.textMuted, fontSize:13 }}>No usage data</div>
   );
-  const max = Math.max(...data.map(d => d.value), 1);
+
+  // Build stable integer ticks for low/zero-heavy data so labels don't repeat.
+  const buildYAxisTicks = (maxValue) => {
+    const tickCount = 5;
+    const minAxisMax = 4; // ensures 0,1,2,3,4 at minimum visual range
+    const safeMax = Math.max(Number(maxValue) || 0, 0);
+    const desiredMax = Math.max(minAxisMax, Math.ceil(safeMax));
+    const step = Math.max(1, Math.ceil(desiredMax / (tickCount - 1)));
+    const axisMax = step * (tickCount - 1);
+    return Array.from({ length: tickCount }, (_, i) => i * step);
+  };
+
+  const dataMax = Math.max(...data.map(d => Number(d.value) || 0), 0);
+  const yTicks = buildYAxisTicks(dataMax);
+  const axisMax = yTicks[yTicks.length - 1] || 1;
+
+  const handleMouseEnter = (i, e) => {
+    setHovered(i);
+    if (chartRef.current) {
+      const chartRect = chartRef.current.getBoundingClientRect();
+      const barRect   = e.currentTarget.getBoundingClientRect();
+      const centerX   = barRect.left + barRect.width / 2 - chartRect.left;
+      const topY      = barRect.top - chartRect.top;
+      setTooltipPos({ x: centerX, y: topY });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(null);
+    setTooltipPos(null);
+  };
+
+  const hoveredData = hovered !== null ? data[hovered] : null;
 
   return (
-    <div style={{ position:'relative' }}>
+    <div ref={chartRef} style={{ position:'relative' }}>
+
+      {/* ── Tooltip rendered here at chart root — never clipped ── */}
+      {hoveredData && tooltipPos && (
+        <div style={{
+          position:      'absolute',
+          top:           tooltipPos.y - 42,
+          left:          tooltipPos.x,
+          transform:     'translateX(-50%)',
+          background:    isDark ? '#1A2235' : '#fff',
+          border:        `1px solid ${isDark ? '#2A3550' : '#E4E8F0'}`,
+          borderRadius:  8,
+          padding:       '5px 12px',
+          fontSize:      12,
+          color:         t.text,
+          fontFamily:    fonts.mono,
+          whiteSpace:    'nowrap',
+          boxShadow:     '0 4px 16px rgba(0,0,0,0.18)',
+          pointerEvents: 'none',
+          zIndex:        999,
+        }}>
+          {hoveredData.value} {unit}{onBarClick ? ' · click to drill in' : ''}
+        </div>
+      )}
+
       <div style={{ display:'flex', gap:0 }}>
         {/* Y axis */}
         <div style={{ display:'flex', flexDirection:'column', justifyContent:'space-between', paddingBottom:28, paddingRight:10, minWidth:40 }}>
-          {[max, Math.round(max*0.75), Math.round(max*0.5), Math.round(max*0.25), 0].map(v => (
+          {[...yTicks].reverse().map(v => (
             <div key={v} style={{ fontSize:10, color:t.textMuted, fontFamily:fonts.mono, textAlign:'right' }}>{v}</div>
           ))}
         </div>
+
         {/* Bars */}
         <div style={{ flex:1, position:'relative' }}>
+          {/* Grid lines */}
           {[0,25,50,75,100].map(p => (
             <div key={p} style={{ position:'absolute', left:0, right:0, top:`${p}%`, borderTop:`1px dashed ${isDark ? '#1A2235' : '#E4E8F0'}`, pointerEvents:'none' }} />
           ))}
+
           <div style={{ display:'flex', alignItems:'flex-end', height:200, gap:5, position:'relative', zIndex:1 }}>
             {data.map((d, i) => {
-              const pct    = (d.value / max) * 100;
-              const isHov  = hovered === i;
-              const isAct  = activeBar === d.label;
-              const lit    = isHov || isAct;
+              const pct   = axisMax > 0 ? (d.value / axisMax) * 100 : 0;
+              const isHov = hovered === i;
+              const isAct = activeBar === d.label;
+              const lit   = isHov || isAct;
               return (
                 <div key={i}
                   style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', height:'100%', justifyContent:'flex-end', position:'relative', cursor: onBarClick ? 'pointer' : 'default' }}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  onClick={() => onBarClick && onBarClick(d)}
+                  onMouseEnter={(e) => handleMouseEnter(i, e)}
+                  onMouseLeave={handleMouseLeave}
+                  onClick={(e) => {
+                    // prevent any default navigation or form submit bubbling
+                    try { e.preventDefault?.(); e.stopPropagation?.(); } catch (err) {}
+                    onBarClick && onBarClick(d, e);
+                  }}
                 >
-                  {isHov && (
-                    <div style={{ position:'absolute', bottom:'100%', marginBottom:6, background: isDark ? '#1A2235' : '#fff', border:`1px solid ${t.border}`, borderRadius:8, padding:'5px 10px', fontSize:12, color:t.text, fontFamily:fonts.mono, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(0,0,0,0.15)', zIndex:10, transform:'translateX(-50%)', left:'50%' }}>
-                      {d.value} {unit}{onBarClick ? ' — click to drill in' : ''}
-                    </div>
-                  )}
-                  <div style={{ width:'100%', borderRadius:'5px 5px 0 0', height:`${Math.max(pct,2)}%`, background: lit ? gradient : (isDark ? 'rgba(255,255,255,0.06)' : '#E8ECF5'), boxShadow: lit ? `0 0 14px ${glow}` : 'none', transition:'all 0.2s', outline: isAct ? `2px solid ${glow}` : 'none' }} />
+                  <div style={{
+                    width:        '100%',
+                    borderRadius: '5px 5px 0 0',
+                    height:       d.value > 0 ? `${Math.max(pct, 2)}%` : '0%',
+                    background:   lit ? gradient : (isDark ? 'rgba(255,255,255,0.06)' : '#E8ECF5'),
+                    boxShadow:    lit ? `0 0 14px ${glow}` : 'none',
+                    transition:   'all 0.2s',
+                    outline:      isAct ? `2px solid ${glow}` : 'none',
+                  }} />
                 </div>
               );
             })}
           </div>
+
           {/* X labels */}
           <div style={{ display:'flex', gap:5, marginTop:6 }}>
             {data.map((d, i) => (

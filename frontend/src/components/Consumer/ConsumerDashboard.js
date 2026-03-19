@@ -126,7 +126,8 @@ const ConsumerDashboard = () => {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const totalDue      = bills.filter(b => b.status !== 'Paid').reduce((s, b) => s + parseFloat(b.amount || 0), 0);
   const overdueBills  = bills.filter(b => b.status === 'Overdue');
-  const activeConn    = connections.filter(c => c.connection_status === 'Connected');
+  // const activeConn    = connections.filter(c => c.connection_status === 'Connected');
+  const activeConn = connections.filter(c => ['active', 'connected'].includes((c.connection_status || '').toLowerCase()));
   const openComplaints = complaints.filter(c => c.status !== 'Resolved').length;
 
   // ── Skeleton loading ───────────────────────────────────────────────────────
@@ -291,7 +292,7 @@ const ConsumerDashboard = () => {
                       <div style={{ fontSize:12, fontWeight:500, color:t.text }}>{util.label}</div>
                       <div style={{ fontSize:11, color:t.textSub, fontFamily:fonts.mono }}>ID: {conn.connection_id}</div>
                     </div>
-                    <span style={{ fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:100, background: conn.connection_status === 'Connected' ? (isDark ? '#0D2E1A' : '#DCFCE7') : (isDark ? '#2D0C0C' : '#FEE2E2'), color: conn.connection_status === 'Connected' ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#F87171' : '#B91C1C') }}>
+                    <span style={{ fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:100, background: ['connected','active'].includes((conn.connection_status || '').toLowerCase()) ? (isDark ? '#0D2E1A' : '#DCFCE7') : (isDark ? '#2D0C0C' : '#FEE2E2'), color: ['connected','active'].includes((conn.connection_status || '').toLowerCase()) ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#F87171' : '#B91C1C') }}>
                       {conn.connection_status}
                     </span>
                   </div>

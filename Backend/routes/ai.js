@@ -6,7 +6,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 // ── Helper: fetch consumer context from DB ─────────────────────────────────
-async function getConsumerContext(userId) {
+async function getConsumerContext(person_id) {
   const [usageRes, billRes, complaintRes, connRes] = await Promise.all([
     pool.query(`
       SELECT
@@ -22,7 +22,7 @@ async function getConsumerContext(userId) {
                                  AND us.slab_num  = ts.slab_num
       WHERE uc.consumer_id = $1
       ORDER BY us.time_to DESC LIMIT 36
-    `, [userId]),
+    `, [person_id]),
 
     pool.query(`
       SELECT
@@ -36,14 +36,14 @@ async function getConsumerContext(userId) {
       LEFT JOIN bill_postpaid bp  ON bd.bill_document_id = bp.bill_document_id
       WHERE uc.consumer_id = $1
       ORDER BY bd.bill_generation_date DESC LIMIT 24
-    `, [userId]),
+    `, [person_id]),
 
     pool.query(`
       SELECT status, COUNT(*) AS count
       FROM complaint
       WHERE consumer_id = $1
       GROUP BY status
-    `, [userId]),
+    `, [person_id]),
 
     pool.query(`
       SELECT LOWER(u.utility_name) AS utility, uc.connection_status, uc.payment_type
@@ -51,7 +51,7 @@ async function getConsumerContext(userId) {
       JOIN tariff t  ON uc.tariff_id = t.tariff_id
       JOIN utility u ON t.utility_id = u.utility_id
       WHERE uc.consumer_id = $1
-    `, [userId]),
+    `, [person_id]),
   ]);
 
   return {
@@ -142,7 +142,7 @@ router.post('/consumer', async (req, res) => {
   if (!question) return res.status(400).json({ error: 'Question is required' });
 
   try {
-    const ctx = await getConsumerContext(req.user.userId);
+    const ctx = await getConsumerContext(req.user.person_id);
 
     const systemPrompt = `You are an intelligent utility advisor for CitySync, a utility management platform in Dhaka, Bangladesh.
 

@@ -52,6 +52,93 @@ SELECT * FROM PAYMENT;
 
 
 SELECT setval(
-  pg_get_serial_sequence('bill_document','bill_document_id'),
-  (SELECT COALESCE(MAX(bill_document_id), 0) FROM bill_document)
+  pg_get_serial_sequence('utility_connection','connection_id'),
+  (SELECT COALESCE(MAX(connection_id), 0) FROM utility_connection)
 );
+
+
+-- ALTER TABLE usage
+-- ADD COLUMN unit_of_measurement VARCHAR(20);
+
+-- UPDATE usage
+-- SET unit_of_measurement = 'kWh';
+
+DELETE FROM payment
+WHERE bill_document_id = 3;
+UPDATE bill_document
+SET bill_status = 'UNPAID'
+WHERE bill_document_id = 3;
+
+
+
+SELECT
+  -- us.meter_id,
+  -- us.usage_id,
+  date_trunc('month', us.time_to) AS date,
+  SUM(us.unit_used) AS units_logged,
+  -- us.time_from,
+  -- us.time_to,
+  -- us.tariff_id,
+  -- us.slab_num,
+  -- get_rate(us.tariff_id, us.slab_num) AS rate,
+  SUM(ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num))) AS cost,
+  uc.connection_name,
+  -- LOWER(u.utility_name)               AS utility_tag,
+  u.unit_of_measurement
+FROM usage us
+JOIN utility_connection uc ON us.meter_id  = uc.meter_id
+JOIN tariff  t             ON us.tariff_id = t.tariff_id
+JOIN utility u             ON t.utility_id = u.utility_id
+-- WHERE uc.consumer_id = $1
+WHERE uc.consumer_id = 1
+GROUP BY date, us.tariff_id, uc.connection_name, u.unit_of_measurement
+ORDER BY date DESC
+LIMIT 60;
+
+
+
+SELECT
+  date_trunc('month', us.time_to) AS date,
+  SUM(us.unit_used) AS units_logged,
+  SUM(ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num))) AS cost,
+  u.unit_of_measurement
+FROM usage us
+JOIN utility_connection uc ON us.meter_id  = uc.meter_id
+JOIN tariff  t             ON us.tariff_id = t.tariff_id
+JOIN utility u             ON t.utility_id = u.utility_id
+-- WHERE uc.consumer_id = $1 AND uc.connection_id = $2
+WHERE uc.consumer_id = 1 AND uc.connection_id = 1
+GROUP BY date, us.tariff_id, u.unit_of_measurement
+ORDER BY date DESC
+LIMIT 60;
+
+
+-- Last 12 months usage per month (includes months with zero usage)
+-- Replace $1 (consumer_id) and $2 (connection_id) with parameters or hardcode values for testing
+WITH months AS (
+  SELECT generate_series(
+    date_trunc('month', CURRENT_DATE) - INTERVAL '23 months',
+    date_trunc('month', CURRENT_DATE),
+    INTERVAL '1 month'
+  ) AS month_start
+),
+usage_filtered AS (
+  SELECT us.*
+  FROM usage us
+  JOIN utility_connection uc ON us.meter_id = uc.meter_id
+  -- WHERE uc.consumer_id = $1 AND uc.connection_id = $2
+  WHERE uc.consumer_id = 1 AND uc.connection_id = 1
+)
+SELECT
+  to_char(m.month_start, 'YYYY-MM') AS month,
+  to_char(m.month_start, 'FMMonth YYYY') AS month_name,
+  COALESCE(SUM(us.unit_used), 0) AS units_logged,
+  COALESCE(SUM(ROUND(us.unit_used * get_rate(us.tariff_id, us.slab_num))), 0) AS cost,
+  MAX(u.unit_of_measurement) AS unit_of_measurement
+FROM months m
+LEFT JOIN usage_filtered us
+  ON date_trunc('month', us.time_to) = m.month_start
+LEFT JOIN tariff t ON us.tariff_id = t.tariff_id
+LEFT JOIN utility u ON t.utility_id = u.utility_id
+GROUP BY m.month_start
+ORDER BY m.month_start DESC;
