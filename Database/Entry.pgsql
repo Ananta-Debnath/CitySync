@@ -29,8 +29,8 @@ BEGIN
     INSERT INTO employee (person_id, role, employee_num, hire_date, employment_status)
     VALUES (v_person_id, 'admin', 'EMP001', '2020-01-01', 'Active');
 
-    INSERT INTO meter (address_id, meter_type)
-    VALUES (v_address_id, 'Electricity')
+    INSERT INTO meter (address_id, meter_type, meter_status)
+    VALUES (v_address_id, 'Electricity', 'Active')
     RETURNING meter_id INTO v_meter_id;
 
     INSERT INTO utility_connection (consumer_id, meter_id, tariff_id, payment_type, connection_name, connection_type, connection_date, connection_status)
@@ -72,8 +72,8 @@ BEGIN
     INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
     VALUES (v_meter_id, 101, 1, 2, date_trunc('month', now()) - interval '9 month' + interval '3 hours', date_trunc('month', now()) - interval '9 month' + interval '4 hours');
 
-    INSERT INTO meter (address_id, meter_type)
-    VALUES (v_address_id, 'Water')
+    INSERT INTO meter (address_id, meter_type, meter_status)
+    VALUES (v_address_id, 'Water', 'Active')
     RETURNING meter_id INTO v_meter_id;
 
     INSERT INTO utility_connection (consumer_id, meter_id, tariff_id, payment_type, connection_name, connection_type, connection_date, connection_status)

@@ -5,16 +5,15 @@ postal code needed??
 move logic to db???
 
 ---DASHBOARD---
-Include connection name
-Active??
-Usage tabel??
+Include connection name   ---DONE
+Active??   ---DONE
+Usage table??
 
 ---CONNECTIONS---
-Include connection name
+Include connection name  ---DONE
 Status naming
-Each connection details
-Prepaid??
-New conn utility type - LV, MV, HV??
+Each connection details --Add tariff detail under a button
+Prepaid??  --DONE --recharge ability left
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
@@ -22,7 +21,13 @@ show prepaids too?
 new payment method during pay
 details -> pay --fix   ---FIXED, needs to be centered
 reload after payment ---DONE
-color code for paid, unpaid
+color code for paid, unpaid   --- has to be changed in theme.js
+
+---BillDetail---
+Add more details
+fixed charge
+address
+Download PDF
 
 ---PAYMENTS---
 GPay - show email??  --DONE
@@ -36,11 +41,13 @@ graph text font size too much
 bar chart y axis  ---DONE
 Move graphs side by side?
 Have day mode in line graph??
+Have delay in fetching data. --optional
 
 ---APPLICATION---
 address typing glitch ---DONE
 Change address method
 Have a tick box for my address
+New conn utility type - LV, MV, HV??
 
 ---COMPLAINTS---
 dont show assigned tick

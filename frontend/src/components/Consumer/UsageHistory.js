@@ -37,6 +37,10 @@ const transformUsageForChart = (granularity, readings) => {
 
 // Simple in-memory cache for month usage keyed by connection_id or 'all'
 const MONTH_USAGE_CACHE = {};
+// Simple per-connection cache for daily (drill) usage keyed by connection_id -> monthSk
+const DRILL_USAGE_CACHE = {};
+// Maximum number of past months to cache per connection (exclude current month)
+const MAX_DRILL_CACHE_MONTHS = 3; // configurable
 
 
 
@@ -104,10 +108,6 @@ const UsageHistory = () => {
       else if (setTo === 'both') { setMonthUsage(normalized); setLineUsage(normalized); }
       else if (setTo === 'drill') setMonthUsage(normalized);
 
-      // For initial month fetch when connection isn't provided, try to pick an activeTab
-      if (granularity === 'month' && !connection_id && Array.isArray(data) && data.length > 0 && !activeTab) {
-        setActiveTab(data[0].connection_name || activeTab);
-      }
       return data;
     } catch (err) {
       console.error(err);
@@ -115,7 +115,7 @@ const UsageHistory = () => {
     } finally {
       setLoading(false);
     }
-  }, [authFetch, activeTab]);
+  }, [authFetch]);
 
 
   // Fetch available connections (tags/names). If the endpoint is missing or
@@ -128,11 +128,10 @@ const UsageHistory = () => {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           // Keep only id, name and optional utility type to avoid passing large payload into state
-          const mapped = data.map(c => ({ id: c.connection_id, name: c.connection_name, utility: c.utility_type?.toLowerCase(), unit: c.unit_of_measurement }));
+          const mapped = data.map(c => ({ id: c.connection_id, name: c.connection_name, utility: c.utility_tag, unit: c.unit_of_measurement }));
           setConnections(mapped);
-          setActiveTab(mapped[0].id);
-          // fetch usage for the first connection id
-          await fetchUsageData('month', null, mapped[0].id, 'both');
+          // Initialize once; do not reset user-selected tab on subsequent re-renders.
+          setActiveTab(prev => prev ?? mapped[0].id);
           return;
         }
       } else {
@@ -152,14 +151,10 @@ const UsageHistory = () => {
 
   // When activeTab changes, fetch usage for that connection (if connections list exists)
   useEffect(() => {
-    // If we have a connections list, fetch per-connection usage.
+    // If we have a connections list, always fetch per-connection usage when
+    // the user switches tabs. This ensures fresh data on every selection.
     if (connections && connections.length > 0 && activeTab) {
-      const cached = MONTH_USAGE_CACHE[activeTab] || MONTH_USAGE_CACHE['all'];
-      if (cached) {
-        setMonthUsage(cached);
-      } else {
-        fetchUsageData('month', null, activeTab, 'usage');
-      }
+      fetchUsageData('month', null, activeTab, 'both');
     }
   }, [activeTab, connections, fetchUsageData]);
 
@@ -261,6 +256,46 @@ const UsageHistory = () => {
     fontSize:14, lineHeight:1, transition:'all 0.15s',
     opacity: disabled ? 0.4 : 1,
   });
+
+  // Handle bar click (drill into daily data). Moved out of JSX for clarity.
+  const handleBarClick = async (d, e) => {
+    try { e?.preventDefault?.(); e?.stopPropagation?.(); } catch (err) {}
+    const m = visibleMonths.find(m => m.label === d.label);
+    if (!m) return;
+    const monthSk = m.sk; // expected YYYY-MM
+
+    // determine current month SK to avoid caching current data
+    const now = new Date();
+    const currentSk = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const isCurrentMonth = monthSk === currentSk;
+
+    if (!isCurrentMonth) {
+      const connCache = DRILL_USAGE_CACHE[activeTab] || {};
+      const cached = connCache[monthSk];
+      if (cached) {
+        setMonthUsage(cached);
+        setDrillMonth({ sk: monthSk, label: m.label });
+        return;
+      }
+    }
+
+    const resp = await fetchUsageData('day', monthSk, activeTab, 'drill');
+    if (!resp) return;
+
+    if (!isCurrentMonth) {
+      DRILL_USAGE_CACHE[activeTab] = DRILL_USAGE_CACHE[activeTab] || {};
+      DRILL_USAGE_CACHE[activeTab][monthSk] = resp.map(normalizeUsage);
+      const keys = Object.keys(DRILL_USAGE_CACHE[activeTab]).sort();
+      if (keys.length > MAX_DRILL_CACHE_MONTHS) {
+        const removeCount = keys.length - MAX_DRILL_CACHE_MONTHS;
+        for (let i = 0; i < removeCount; i++) {
+          delete DRILL_USAGE_CACHE[activeTab][keys[i]];
+        }
+      }
+    }
+
+    setDrillMonth({ sk: monthSk, label: m.label });
+  };
 
   return (
     <div style={{ fontFamily:fonts.ui }}>
@@ -395,16 +430,7 @@ const UsageHistory = () => {
                 gradient={util.gradient} glow={util.glow}
                 unit={unitLabel} t={t} isDark={isDark}
                 activeBar={null}
-                onBarClick={async (d, e) => {
-                  // extra guard: prevent default navigation / bubbling
-                  try { e?.preventDefault?.(); e?.stopPropagation?.(); } catch (err) {}
-                  const m = visibleMonths.find(m => m.label === d.label);
-                  if (!m) return;
-                  // fetch day-level data for clicked month and then set drill state
-                  const monthSk = m.sk; // expected YYYY-MM
-                  const resp = await fetchUsageData('day', monthSk, activeTab, 'drill');
-                  if (resp) setDrillMonth({ sk: monthSk, label: m.label });
-                }}
+                onBarClick={(d, e) => handleBarClick(d, e)}
               />
             )}
           </div>

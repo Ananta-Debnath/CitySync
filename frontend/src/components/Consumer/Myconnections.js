@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities } from '../../theme';
+import { tokens, fonts } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 
 const UTIL_ICONS  = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
@@ -22,17 +22,28 @@ const STATUS_STYLE = {
 };
 
 // ── Connection Card ───────────────────────────────────────────────────────────
-const ConnectionCard = ({ conn, t, isDark }) => {
+const ConnectionCard = ({ conn, t, isDark, onOpen }) => {
   const utilKey = conn.utility_tag;
   const util    = UTIL_COLORS[utilKey] || UTIL_COLORS.electricity;
   const Icon    = UTIL_ICONS[utilKey]  || ElectricityIcon;
   const sc      = STATUS_STYLE[conn.connection_status] || STATUS_STYLE['Inactive'];
+  const connectionName = conn.connection_name || conn.utility_name;
 
   return (
     <div style={{
       background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16,
       padding: 22, position: 'relative', overflow: 'hidden', transition: 'box-shadow 0.18s',
     }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open details for connection ${conn.connection_id}`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       onMouseEnter={e => e.currentTarget.style.boxShadow = `0 6px 24px ${util.glow}`}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
@@ -46,8 +57,7 @@ const ConnectionCard = ({ conn, t, isDark }) => {
             <Icon size={20} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize:15, fontWeight:600, color:t.text, textTransform:'capitalize' }}>{conn.utility_name}</div>
-            <div style={{ fontSize:11, color:t.textSub, fontFamily:fonts.mono }}>ID #{conn.connection_id}</div>
+            <div style={{ fontSize:15, fontWeight:600, color:t.text, textTransform:'capitalize' }}>{connectionName}</div>
           </div>
         </div>
         <span style={{ fontSize:11, fontWeight:600, padding:'4px 12px', borderRadius:100, background:isDark ? sc.db : sc.lb, color:isDark ? sc.dc : sc.lc }}>
@@ -60,8 +70,6 @@ const ConnectionCard = ({ conn, t, isDark }) => {
         {[
           { label:'Type',          val: conn.connection_type   },
           { label:'Payment',       val: conn.payment_type      },
-          { label:'Tariff',        val: conn.tariff_name       },
-          { label:'Billing',       val: conn.billing_method    },
           { label:'Since',         val: conn.connection_date ? new Date(conn.connection_date).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—' },
           { label:'This Month',    val: `${parseFloat(conn.units_used||0).toFixed(1)} ${conn.unit_of_measurement}` },
         ].map(item => (
@@ -80,6 +88,28 @@ const ConnectionCard = ({ conn, t, isDark }) => {
         <span style={{ fontSize:12, color:t.textSub }}>
           {conn.house_num}, {conn.street_name}, {conn.region_name}
         </span>
+      </div>
+
+      <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end' }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          style={{
+            border:'none',
+            borderRadius:8,
+            padding:'7px 10px',
+            cursor:'pointer',
+            fontSize:12,
+            fontWeight:600,
+            fontFamily:fonts.ui,
+            background:isDark ? 'rgba(77,125,255,0.18)' : '#EEF2FF',
+            color:t.primary,
+          }}
+        >
+          View Details
+        </button>
       </div>
     </div>
   );
@@ -186,7 +216,15 @@ const MyConnections = () => {
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))', gap:16 }}>
-          {filtered.map(conn => <ConnectionCard key={conn.connection_id} conn={conn} t={t} isDark={isDark} />)}
+          {filtered.map(conn => (
+            <ConnectionCard
+              key={conn.connection_id}
+              conn={conn}
+              t={t}
+              isDark={isDark}
+              onOpen={() => navigate(`/consumer/connections/${conn.connection_id}`)}
+            />
+          ))}
         </div>
       )}
     </div>

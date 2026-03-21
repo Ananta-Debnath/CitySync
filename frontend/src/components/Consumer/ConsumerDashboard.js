@@ -283,13 +283,14 @@ const ConsumerDashboard = () => {
               connections.map((conn, i) => {
                 const util = utilities[conn.utility_tag] || utilities.electricity;
                 const Icon = UtilIcons[conn.utility_tag] || ElectricityIcon;
+                const connectionName = conn.connection_name || util.label;
                 return (
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
                     <div style={{ width:28, height:28, borderRadius:8, background:util.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 6px ${util.glow}`, flexShrink:0 }}>
                       <Icon size={13} color="#fff" />
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:12, fontWeight:500, color:t.text }}>{util.label}</div>
+                      <div style={{ fontSize:12, fontWeight:500, color:t.text }}>{connectionName}</div>
                       <div style={{ fontSize:11, color:t.textSub, fontFamily:fonts.mono }}>ID: {conn.connection_id}</div>
                     </div>
                     <span style={{ fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:100, background: ['connected','active'].includes((conn.connection_status || '').toLowerCase()) ? (isDark ? '#0D2E1A' : '#DCFCE7') : (isDark ? '#2D0C0C' : '#FEE2E2'), color: ['connected','active'].includes((conn.connection_status || '').toLowerCase()) ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#F87171' : '#B91C1C') }}>

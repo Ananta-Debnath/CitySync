@@ -1,5 +1,4 @@
 const pool = require("../db");
-const { get } = require("../routes/consumer");
 
 
 
@@ -27,12 +26,8 @@ const getConnections = async (req, res) => {
         uc.connection_date,
         uc.payment_type,
         uc.connection_type,
-        u.utility_type,
-        u.utility_name,
+        LOWER(u.utility_type) AS utility_tag,
         u.unit_of_measurement,
-        LOWER(u.utility_type)   AS utility_tag,
-        t.tariff_name,
-        t.billing_method,
         a.house_num,
         a.street_name,
         r.region_name,
@@ -56,6 +51,66 @@ const getConnections = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch connections' });
+  }
+}
+
+const getConnectionDetails = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        uc.connection_id,
+        uc.connection_name,
+        uc.connection_status,
+        uc.connection_date,
+        uc.payment_type,
+        uc.connection_type,
+        m.meter_id,
+        m.meter_type,
+        m.is_active AS meter_active,
+        u.utility_type,
+        u.utility_name,
+        u.unit_of_measurement,
+        LOWER(u.utility_type)   AS utility_tag,
+        t.tariff_name,
+        t.billing_method,
+        a.house_num,
+        a.street_name,
+        r.region_name,
+        COALESCE((
+          SELECT SUM(us.unit_used)
+          FROM usage us
+          WHERE us.meter_id = uc.meter_id
+            AND us.time_to >= DATE_TRUNC('month', CURRENT_DATE)
+        ), 0) AS units_used, -- usage for current month
+        eu.voltage_level        AS electricity_voltage_level,
+        eu.phase_type           AS electricity_phase_type,
+        wu.pressure_level       AS water_pressure_level,
+        wu.water_source         AS water_source,
+        wu.quality_grade        AS water_quality_grade,
+        gu.gas_type             AS gas_type,
+        gu.pressure_category    AS gas_pressure_category,
+        pa.prepaid_account_id   AS prepaid_account_id,
+        pa.balance             AS prepaid_balance
+      FROM utility_connection uc
+      JOIN tariff  t  ON uc.tariff_id  = t.tariff_id
+      JOIN utility u  ON t.utility_id  = u.utility_id
+      LEFT JOIN electricity_utility eu ON u.utility_id = eu.utility_id
+      LEFT JOIN water_utility       wu ON u.utility_id = wu.utility_id
+      LEFT JOIN gas_utility         gu ON u.utility_id = gu.utility_id
+      LEFT JOIN prepaid_account    pa ON uc.connection_id = pa.connection_id
+      JOIN meter   m  ON uc.meter_id   = m.meter_id
+      JOIN address a  ON m.address_id  = a.address_id
+      JOIN region  r  ON a.region_id   = r.region_id
+      WHERE uc.consumer_id = $1 AND uc.connection_id = $2
+    `, [req.user.person_id, req.params.id]);
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: 'Connection not found' });
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch connection details' });
   }
 }
 
@@ -714,6 +769,7 @@ const getPaymentHistory = async (req, res) => {
 module.exports = {
   getPerson,
   getConnections,
+  getConnectionDetails,
   getBills,
   getBillsById,
   getUsageHistory,

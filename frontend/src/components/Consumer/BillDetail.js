@@ -140,9 +140,9 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
         <Row label="Bill ID"         value={`#${bill.bill_document_id}`}                                         mono t={t} />
         <Row label="Bill Type"       value={bill.bill_type}                                                       t={t} />
         <Row label="Tariff Plan"     value={bill.tariff_name}                                                     t={t} />
-        <Row label="Billing Method"  value={bill.billing_method}                                                  t={t} />
+        {/* <Row label="Billing Method"  value={bill.billing_method}                                                  t={t} /> */}
         <Row label="Period"          value={`${fmt(bill.bill_period_start)} — ${fmt(bill.bill_period_end)}`}      t={t} />
-        <Row label="Generated On"    value={fmt(bill.bill_generation_date)}                                       t={t} />
+        <Row label="Issue Date"    value={fmt(bill.bill_generation_date)}                                       t={t} />
         {bill.remarks && <Row label="Remarks" value={bill.remarks} t={t} />}
       </div>
 

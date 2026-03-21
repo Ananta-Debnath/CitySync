@@ -1,4 +1,5 @@
 # Folders
+.vscode
 Backend/node_modules
 CitySync_Wasik
 frontend_old
