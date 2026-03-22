@@ -44,7 +44,7 @@ const getConnections = async (req, res) => {
       JOIN address a  ON m.address_id  = a.address_id
       JOIN region  r  ON a.region_id   = r.region_id
       WHERE uc.consumer_id = $1
-      ORDER BY uc.connection_date DESC
+      ORDER BY uc.connection_date DESC, uc.connection_id ASC
     `, [req.user.person_id]);
 
     res.json(result.rows);
@@ -143,15 +143,19 @@ const getBills = async (req, res) => {
         bp.remarks,
         u.utility_name,
         u.unit_of_measurement,
-        LOWER(u.utility_name)                  AS utility_tag,
+        LOWER(u.utility_type)                  AS utility_tag,
         TO_CHAR(bp.bill_period_start, 'Mon YYYY') AS period,
-        uc.connection_id
+        uc.connection_id,
+        uc.connection_name,
+        p.payment_date
       FROM bill_document bd
-      JOIN utility_connection uc ON bd.connection_id     = uc.connection_id
-      JOIN tariff  t              ON uc.tariff_id         = t.tariff_id
-      JOIN utility u              ON t.utility_id         = u.utility_id
-      RIGHT JOIN bill_postpaid bp  ON bd.bill_document_id  = bp.bill_document_id
-      WHERE uc.consumer_id = $1
+      JOIN utility_connection uc      ON bd.connection_id     = uc.connection_id
+      JOIN tariff  t                  ON uc.tariff_id         = t.tariff_id
+      JOIN utility u                  ON t.utility_id         = u.utility_id
+      LEFT JOIN bill_postpaid bp      ON bd.bill_document_id  = bp.bill_document_id
+      LEFT JOIN prepaid_statement ps  ON bd.bill_document_id  = ps.bill_document_id
+      LEFT JOIN payment p             ON bd.bill_document_id = p.bill_document_id
+      WHERE uc.consumer_id = $1 AND bd.bill_status NOT ILIKE 'CANCELLED'
       ORDER BY bd.bill_generation_date DESC
       LIMIT $2
     `, [req.user.person_id, limit]);

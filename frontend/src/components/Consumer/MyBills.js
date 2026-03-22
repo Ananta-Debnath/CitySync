@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, use } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities, statusColors } from '../../theme';
@@ -9,6 +9,7 @@ import BillDetail from './BillDetail';
 
 const UtilIcons = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 const FILTERS   = ['All', 'Overdue', 'Pending', 'Paid'];
+const BILL_TYPES = ['All', 'Prepaid', 'Postpaid'];
 
 // ── Bill Card ─────────────────────────────────────────────────────────────────
 const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
@@ -28,7 +29,7 @@ const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
             <Icon size={18} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize:14, fontWeight:600, color:t.text }}>{bill.utility_name}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:t.text }}>{bill.connection_name}</div>
             <div style={{ fontSize:11, color:t.textSub, fontFamily:fonts.mono }}>{bill.period}</div>
           </div>
         </div>
@@ -37,16 +38,24 @@ const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
         </span>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14, padding:'12px 0', borderTop:`1px solid ${t.border}`, borderBottom:`1px solid ${t.border}` }}>
-        {[
-          { label:'Amount',   val:`৳ ${parseFloat(bill.amount).toLocaleString()}` },
-          { label:'Units',    val:`${bill.unit_consumed||'—'}` },
-          { label:'Due',      val: bill.due_date ? new Date(bill.due_date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—' },
-        ].map(item => (
-          <div key={item.label}>
-            <div style={{ fontSize:10, color:t.textMuted, fontFamily:fonts.mono, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{item.label}</div>
-            <div style={{ fontSize:14, fontWeight:600, color:t.text }}>{item.val}</div>
-          </div>
-        ))}
+        {(() => {
+          const unitsVal = (bill.bill_type?.toLowerCase() === 'prepaid') ? (bill.energy_amount || '—') : (bill.unit_consumed || '—');
+          const dateLabel = bill.status === 'Paid' ? 'Paid' : 'Due';
+          const dateVal = bill.status === 'Paid' ? bill.payment_date : bill.due_date;
+          const dateDisplay = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—';
+          const items = [
+            { label: 'Amount', val: `৳ ${parseFloat(bill.amount).toLocaleString()}` },
+            { label: 'Units',  val: unitsVal },
+            { label: dateLabel, val: dateDisplay },
+          ];
+
+          return items.map(item => (
+            <div key={item.label}>
+              <div style={{ fontSize:10, color:t.textMuted, fontFamily:fonts.mono, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{item.label}</div>
+              <div style={{ fontSize:14, fontWeight:600, color:t.text }}>{item.val}</div>
+            </div>
+          ));
+        })()}
       </div>
       <div style={{ display:'flex', gap:10 }}>
         <button onClick={() => onOpenDetail(bill.bill_document_id)} style={{ flex:1, padding:'9px', borderRadius:9, border:`1.5px solid ${t.border}`, background:'transparent', color:t.text, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer' }}>Details</button>
@@ -63,8 +72,11 @@ const MyBills = () => {
   const t                           = tokens[isDark ? 'dark' : 'light'];
 
   const [bills, setBills]           = useState([]);
+  const [connections, setConnections] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [filter, setFilter]         = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [connectionFilter, setConnectionFilter] = useState('All');
   const [payingBill, setPayingBill] = useState(null);
   const [detailBillId, setDetailBillId] = useState(null);
   const [success, setSuccess]       = useState(false);
@@ -110,7 +122,44 @@ const MyBills = () => {
     return { label: u.label, value: count, color, pct: 0 };
   }).filter(u => u.value > 0).map(u => ({ ...u, pct: u.value / (bills.length||1) }));
 
-  const filtered    = filter === 'All' ? bills : bills.filter(b => b.status === filter);
+  // derive connections list from bills for connection tabs
+  // const connections = React.useMemo(() => {
+  //   const m = new Map();
+  //   bills.forEach(b => {
+  //     const id = b.connection_id ?? b.connection_name;
+  //     if (!m.has(id)) m.set(id, { id, name: b.connection_name, utility: b.utility_tag });
+  //   });
+  //   return Array.from(m.values());
+  // }, [bills]);
+
+  const fetchConnections = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch('/api/consumer/connections');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          // Keep only id, name and optional utility type to avoid passing large payload into state
+          const mapped = data.map(c => ({ id: c.connection_id, name: c.connection_name, utility: c.utility_tag, unit: c.unit_of_measurement }));
+          setConnections(mapped);
+          return;
+        }
+      } else {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to fetch connections');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [authFetch]);
+
+  useEffect(() => { fetchConnections(); }, [fetchConnections]);
+
+  const filteredByConnection = connectionFilter === 'All' ? bills : bills.filter(b => (b.connection_id ?? b.connection_name) === connectionFilter);
+  const filteredByType = typeFilter === 'All' ? filteredByConnection : filteredByConnection.filter(b => (b.bill_type && b.bill_type.toLowerCase() === typeFilter.toLowerCase()));
+  const filtered    = filter === 'All' ? filteredByType : filteredByType.filter(b => b.status === filter);
   const totalDue    = bills.filter(b=>['Pending','Overdue'].includes(b.status)).reduce((s,b)=>s+parseFloat(b.amount||0),0);
   const totalAmount = bills.reduce((s,b)=>s+parseFloat(b.amount||0),0);
 
@@ -182,11 +231,35 @@ const MyBills = () => {
         ))}
       </div>
 
+      {/* Connection tabs (copied style from UsageHistory) */}
+      <div style={{ display:'flex', gap:10, marginBottom:10, flexWrap:'wrap' }}>
+        {[{ id: 'All', name: 'All' }, ...(connections || [])].map(tab => {
+          const active = connectionFilter === tab.id;
+          const u = utilities[tab.utility] || utilities.payment;
+          const Ic = UtilIcons[tab.utility] || BillIcon;
+          return (
+            <button key={tab.id} onClick={() => setConnectionFilter(tab.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', borderRadius:12, border:`1.5px solid ${active ? 'transparent' : t.border}`, background: active ? u.gradient : (isDark ? t.bgCard : '#fff'), cursor:'pointer', transition:'all 0.2s', boxShadow: active ? `0 4px 14px ${u.glow}` : 'none' }}>
+              <Ic size={15} color={active ? '#fff' : t.textSub} />
+              <span style={{ fontSize:13, fontWeight:500, color: active ? '#fff' : t.textSub, textTransform:'capitalize' }}>{tab.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Type tabs (Prepaid / Postpaid) */}
+      <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+        {BILL_TYPES.map(bt => (
+          <button key={bt} onClick={() => setTypeFilter(bt)} style={{ padding:'6px 14px', borderRadius:100, border:`1.5px solid ${typeFilter===bt ? t.primary : t.border}`, background: typeFilter===bt ? (isDark?'rgba(59,111,255,0.12)':'#F3F7FF') : 'transparent', color: typeFilter===bt ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
+            {bt}
+          </button>
+        ))}
+      </div>
+
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding:'7px 16px', borderRadius:100, border:`1.5px solid ${filter===f ? t.primary : t.border}`, background: filter===f ? (isDark?'rgba(59,111,255,0.15)':'#EEF2FF') : 'transparent', color: filter===f ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
-            {f} {f !== 'All' && <span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>{bills.filter(b=>b.status===f).length}</span>}
+            {f} {f !== 'All' && <span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>{bills.filter(b=> (connectionFilter==='All' || ((b.connection_id ?? b.connection_name) === connectionFilter)) && (typeFilter==='All' || (b.bill_type && b.bill_type.toLowerCase()===typeFilter.toLowerCase())) && b.status===f).length}</span>}
           </button>
         ))}
       </div>

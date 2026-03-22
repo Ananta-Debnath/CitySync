@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { fonts, utilities } from '../../theme';
-import { ElectricityIcon, WaterIcon, GasIcon, BillIcon } from '../../Icons';
+import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
+import AddMethodModal from './AddMethodModal';
 
 const UtilIcons = {
   electricity: ElectricityIcon,
@@ -33,11 +34,13 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
   const [methods, setMethods] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loadingMethods, setLoadingMethods] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    authFetch('/api/consumer/payment-methods')
+  const fetchMethods = () => {
+    setLoadingMethods(true);
+    return authFetch('/api/consumer/payment-methods')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
@@ -47,7 +50,9 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
       })
       .catch(() => {})
       .finally(() => setLoadingMethods(false));
-  }, [authFetch]);
+  };
+
+  useEffect(() => { fetchMethods(); }, [authFetch]);
 
   const handlePay = async () => {
     if (!selectedId) {
@@ -224,7 +229,10 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
                       flexShrink: 0,
                     }}
                   >
-                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.8)' }} />
+                    {(() => {
+                      const IconComp = m.method_name === 'bank' ? BankTransferIcon : (m.method_name === 'mobile_banking' ? MobileBankingIcon : GooglePayIcon);
+                      return <IconComp size={16} color="#fff" />;
+                    })()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: t.text }}>
@@ -266,6 +274,24 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
                   </div>
                 </button>
               ))}
+
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{
+                  marginTop: 6,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: `1.5px dashed ${t.border}`,
+                  background: 'transparent',
+                  color: t.primary,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                + Use another method
+              </button>
             </div>
           )}
         </div>
@@ -305,6 +331,15 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
         >
           {loading ? 'Processing...' : `Pay ৳ ${parseFloat(bill.amount).toLocaleString()}`}
         </button>
+      {showAdd && (
+        <AddMethodModal
+          onClose={() => setShowAdd(false)}
+          onAdded={() => { fetchMethods(); }}
+          t={t}
+          isDark={isDark}
+          authFetch={authFetch}
+        />
+      )}
       </div>
     </div>
   );

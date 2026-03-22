@@ -60,6 +60,7 @@ export const statusColors = {
   Active:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Pending:      { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
   Resolved:     { lb:'#DBEAFE', lc:'#1D4ED8', db:'#0C1F45', dc:'#60A5FA' },
+  Paid:         { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Overdue:      { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
   Assigned:     { lb:'#F3E8FF', lc:'#7E22CE', db:'#200D38', dc:'#C084FC' },
   Disconnected: { lb:'#F1F5F9', lc:'#475569', db:'#111827', dc:'#64748B' },

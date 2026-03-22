@@ -13,15 +13,16 @@ Usage table??
 Include connection name  ---DONE
 Status naming
 Each connection details --Add tariff detail under a button
-Prepaid??  --DONE --recharge ability left
+Prepaid??  --DONE
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
-show prepaids too?
-new payment method during pay
+show prepaids too?  ---DONE
+new payment method during pay  ---DONE
 details -> pay --fix   ---FIXED, needs to be centered
 reload after payment ---DONE
-color code for paid, unpaid   --- has to be changed in theme.js
+color code for paid, unpaid   --- has to be changed in theme.js  ---DONE
+add filters  ---DONE
 
 ---BillDetail---
 Add more details

@@ -55,7 +55,7 @@ BEGIN
 
     INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
     VALUES ((SELECT prepaid_account_id FROM prepaid_account WHERE connection_id = v_connection_id), 1011,
-            (SELECT charge_amount FROM fixed_charge WHERE fixed_charge_id = 1011), to_char(now(), 'Month'));
+            (SELECT charge_amount FROM fixed_charge WHERE fixed_charge_id = 1011), to_char(now(), 'Mon YYYY'));
 
     -- Two usage records at the start of the current month (first day)
     INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
