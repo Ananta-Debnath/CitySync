@@ -129,6 +129,100 @@ EXCEPTION
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION create_prepaid_statement(p_account_id INTEGER, p_amount NUMERIC(10, 2))
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_amount_remaining NUMERIC(10,2) := COALESCE(p_amount, 0);
+  v_connection_id INTEGER;
+  v_bill_document_id INTEGER;
+  v_rec RECORD;
+BEGIN
+  IF v_amount_remaining <= 0 THEN
+    RAISE EXCEPTION 'p_amount must be greater than zero';
+  END IF;
+
+  -- Resolve connection for this prepaid account
+  SELECT connection_id INTO v_connection_id
+  FROM prepaid_account
+  WHERE prepaid_account_id = p_account_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Prepaid account not found: %', p_account_id;
+  END IF;
+
+  -- Create a placeholder bill_document for this prepaid recharge. The detailed bill
+  -- (if needed) can be created/updated later; we need a bill id to link applied fixed charges.
+  INSERT INTO bill_document(connection_id, bill_type, unit_consumed, energy_amount, total_amount, bill_status)
+  VALUES (v_connection_id, 'PREPAID', 0, 0, p_amount, 'CANCELLED')
+  RETURNING bill_document_id INTO v_bill_document_id;
+
+	-- ADD VAT (LATER)
+
+  -- Create prepaid statement entry (token can be NULL for now)
+  INSERT INTO prepaid_statement(bill_document_id)
+  VALUES (v_bill_document_id);
+
+  -- Apply fixed charges owed oldest-first (ordered by timeframe). Lock rows for update.
+  FOR v_rec IN
+    SELECT fixed_charge_id, amount, timeframe
+    FROM fixed_charge_owed
+    WHERE prepaid_account_id = p_account_id
+    ORDER BY timeframe
+    FOR UPDATE
+  LOOP
+    IF v_amount_remaining <= 0 THEN
+      EXIT;
+    END IF;
+
+    IF v_amount_remaining >= v_rec.amount THEN
+      -- Fully pay this owed fixed charge: record as applied and remove from owed
+      BEGIN
+        INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, timeframe, amount)
+        VALUES (v_rec.fixed_charge_id, v_bill_document_id, v_rec.timeframe, v_rec.amount);
+      EXCEPTION WHEN unique_violation THEN
+        -- already applied for this bill; ignore
+      END;
+
+      -- Removal will happen after payment completion
+      -- DELETE FROM fixed_charge_owed
+      -- WHERE fixed_charge_id = v_rec.fixed_charge_id
+      --   AND prepaid_account_id = p_account_id
+      --   AND timeframe = v_rec.timeframe;
+
+      v_amount_remaining := v_amount_remaining - v_rec.amount;
+    ELSE
+      -- Partially pay this owed fixed charge: record as applied and keep remainder
+      BEGIN
+        -- For partial payment, record only the amount actually applied
+        INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, timeframe, amount)
+        VALUES (v_rec.fixed_charge_id, v_bill_document_id, v_rec.timeframe, v_amount_remaining);
+      EXCEPTION WHEN unique_violation THEN
+      END;
+
+			-- Removal will happen after payment completion
+      -- UPDATE fixed_charge_owed
+      -- SET amount = amount - v_amount_remaining
+      -- WHERE fixed_charge_id = v_rec.fixed_charge_id
+      --   AND prepaid_account_id = p_account_id
+      --   AND timeframe = v_rec.timeframe;
+
+      v_amount_remaining := 0;
+      EXIT;
+    END IF;
+  END LOOP;
+	
+	UPDATE bill_document
+	SET energy_amount = v_amount_remaining,
+	    total_amount = p_amount
+	WHERE bill_document_id = v_bill_document_id;
+
+  RETURN v_bill_document_id;
+END
+$$;
+
+
 -- TRIGGERS
 -- AFTER INSERT trigger to create prepaid account for new prepaid connection
 CREATE OR REPLACE FUNCTION create_prepaid_account_after_insert() RETURNS trigger
@@ -158,6 +252,27 @@ CREATE TRIGGER create_prepaid_account_after_insert_trg
 AFTER INSERT ON utility_connection
 FOR EACH ROW
 EXECUTE FUNCTION create_prepaid_account_after_insert();
+
+-- TRIGGER to delete fixed_charge_owed when amount is fully paid
+CREATE OR REPLACE FUNCTION remove_fully_paid_fixed_charge() RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM fixed_charge_owed
+    WHERE fixed_charge_id = NEW.fixed_charge_id
+      AND prepaid_account_id = NEW.prepaid_account_id
+      AND timeframe = NEW.timeframe;
+
+    RETURN NEW;
+END;
+$$;
+
+-- DROP TRIGGER IF EXISTS remove_fully_paid_fixed_charge_trg ON fixed_charge_owed;
+CREATE TRIGGER remove_fully_paid_fixed_charge_trg
+AFTER UPDATE OF amount ON fixed_charge_owed
+FOR EACH ROW
+WHEN (NEW.amount <= 0)
+EXECUTE FUNCTION remove_fully_paid_fixed_charge();
 
 
 -- BEFORE INSERT trigger to update balance for prepaid transactions and suspend connection if balance goes negative.
@@ -191,7 +306,7 @@ BEGIN
 
     IF v_balance <= 0 THEN
         UPDATE utility_connection
-        SET connection_status = 'SUSPENDED'
+        SET connection_status = 'Suspended'
         WHERE connection_id = v_connection_id;
 
         UPDATE meter
@@ -199,7 +314,7 @@ BEGIN
         WHERE meter_id = v_meter_id;
     ELSE
         UPDATE utility_connection
-        SET connection_status = 'ACTIVE'
+        SET connection_status = 'Active'
         WHERE connection_id = v_connection_id;
 
         UPDATE meter
@@ -290,11 +405,13 @@ DECLARE
     v_prepaid_account_id INTEGER;
     v_connection_id INTEGER;
     v_bill_type VARCHAR(20);
+	v_energy_amount NUMERIC(10, 2);
+  	v_rec RECORD;
 BEGIN
     UPDATE bill_document
     SET bill_status = 'PAID'
     WHERE bill_document_id = NEW.bill_document_id
-    RETURNING connection_id, bill_type INTO v_connection_id, v_bill_type;
+    RETURNING connection_id, bill_type, energy_amount INTO v_connection_id, v_bill_type, v_energy_amount;
 
     -- For prepaid payments, log transaction
     IF v_bill_type ILIKE 'PREPAID' THEN
@@ -303,7 +420,20 @@ BEGIN
         WHERE connection_id = v_connection_id;
 
         INSERT INTO balance_transaction (bill_document_id, prepaid_account_id, transaction_amount, transaction_type, transaction_time)
-        VALUES (NEW.bill_document_id, v_prepaid_account_id, NEW.payment_amount, 'CREDIT', CURRENT_TIMESTAMP);
+        VALUES (NEW.bill_document_id, v_prepaid_account_id, v_energy_amount, 'CREDIT', CURRENT_TIMESTAMP);
+
+		FOR v_rec IN
+			SELECT fixed_charge_id, amount, timeframe
+			FROM fixed_charge_applied
+			WHERE bill_document_id = NEW.bill_document_id
+			FOR UPDATE
+		LOOP
+			UPDATE fixed_charge_owed
+			SET amount = amount - v_rec.amount
+			WHERE fixed_charge_id = v_rec.fixed_charge_id
+			  AND prepaid_account_id = v_prepaid_account_id
+			  AND timeframe = v_rec.timeframe;
+        END LOOP;
     END IF;
 
     RETURN NEW;

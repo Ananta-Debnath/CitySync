@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
+import RechargeModal from './RechargeModal';
+import BillDetail from './BillDetail';
 
 const UTIL_ICONS = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 
@@ -38,6 +40,9 @@ const ConnectionDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connection, setConnection] = useState(null);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [openedBillId, setOpenedBillId] = useState(null);
 
   const fetchConnection = useCallback(async () => {
     setLoading(true);
@@ -200,7 +205,7 @@ const ConnectionDetail = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/consumer/recharge/${connection.connection_id || id}`)}
+                    onClick={() => setShowRechargeModal(true)}
                     style={{ padding:'10px 12px', marginTop:8, borderRadius:10, border:'none', background:'linear-gradient(135deg,#3B6FFF,#2952D9)', color:'#fff', cursor:'pointer', fontFamily:fonts.ui, fontWeight:600, width:'100%' }}
                   >
                     Recharge
@@ -301,6 +306,32 @@ const ConnectionDetail = () => {
           </div>
         </div>
       </div>
+
+      {showRechargeModal && connection && (
+        <RechargeModal
+          connection={connection}
+          onClose={() => setShowRechargeModal(false)}
+          onSuccess={(data) => {
+            setShowRechargeModal(false);
+            fetchConnection();
+            const id = data && (data.bill_document_id || data.bill_document_id === 0 ? data.bill_document_id : data.bill_document_id);
+            if (id) {
+              setOpenedBillId(id);
+              setShowBillModal(true);
+            }
+          }}
+          t={t}
+          isDark={isDark}
+        />
+      )}
+
+      {showBillModal && openedBillId && (
+        <BillDetail
+          billId={openedBillId}
+          onClose={() => setShowBillModal(false)}
+          onBillPaid={() => { setShowBillModal(false); fetchConnection(); }}
+        />
+      )}
     </div>
   );
 };

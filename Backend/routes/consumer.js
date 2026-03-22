@@ -6,7 +6,7 @@ const { getPerson, getConnections, getConnectionDetails, getBills, getBillsById,
         makePayment, getComplaints, submitComplaint, getApplications, submitApplication,
         getProfile, updateProfile, updateAvatar, changePassword, deactivateAccount,
         getPaymentMethods, addPaymentMethod, setDefaultPaymentMethod, deletePaymentMethod,
-        getPaymentHistory } = require('../controllers/consumerController');
+        getPaymentHistory, createBillForRecharge } = require('../controllers/consumerController');
 
 router.use(authMiddleware);
 router.use(roleMiddleware(['consumer']));
@@ -32,5 +32,6 @@ router.post("/payment-methods", addPaymentMethod);
 router.put("/payment-methods/:id/default", setDefaultPaymentMethod);
 router.delete("/payment-methods/:id", deletePaymentMethod);
 router.get("/payment-history", getPaymentHistory);
+router.post("/recharge", createBillForRecharge);
 
 module.exports = router;

@@ -765,6 +765,31 @@ const getPaymentHistory = async (req, res) => {
   }
 }
 
+const createBillForRecharge = async (req, res) => {
+  const { id, amount } = req.body; // id -> prepaid_account_id
+  const client = await pool.connect();
+  try {
+    // Verify prepaid account belongs to this consumer
+    const check = await client.query(`
+      SELECT pa.prepaid_account_id
+      FROM prepaid_account pa
+      JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+      WHERE pa.prepaid_account_id = $1 AND uc.consumer_id = $2
+    `, [id, req.user.person_id]);
+
+    if (check.rows.length === 0)
+      return res.status(404).json({ error: 'Prepaid account not found' });
+
+    const result = await client.query(`
+      SELECT create_prepaid_statement($1, $2) AS bill_document_id
+    `, [id, amount]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Recharge failed' });
+  }
+}
+
 
 module.exports = {
   getPerson,
@@ -787,5 +812,6 @@ module.exports = {
   addPaymentMethod,
   setDefaultPaymentMethod,
   deletePaymentMethod,
-  getPaymentHistory
+  getPaymentHistory,
+  createBillForRecharge
 };

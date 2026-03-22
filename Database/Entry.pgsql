@@ -4,6 +4,7 @@ DECLARE
     v_person_id integer;
     v_meter_id integer;
     v_connection_id integer;
+    v_prepaid_account_id integer;
     v_bill_document_id integer;
     v_method_id integer;
 BEGIN
@@ -51,6 +52,10 @@ BEGIN
 
     INSERT INTO payment (bill_document_id, method_id, payment_amount)
     VALUES (v_bill_document_id, v_method_id, 100.00);
+
+    INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
+    VALUES ((SELECT prepaid_account_id FROM prepaid_account WHERE connection_id = v_connection_id), 1011,
+            (SELECT charge_amount FROM fixed_charge WHERE fixed_charge_id = 1011), to_char(now(), 'Month'));
 
     -- Two usage records at the start of the current month (first day)
     INSERT INTO usage (meter_id, tariff_id, slab_num, unit_used, time_from, time_to)
