@@ -13,10 +13,16 @@ const ModalField = ({ label, t, children }) => (
   </div>
 );
 
-export const createReactSelectStyles = (selectStyle, t, isDark, fonts) => ({
-  control: provided => ({ ...provided, ...selectStyle, minHeight: 40 }),
+export const createReactSelectStyles = (t, isDark, fonts) => ({
+  control: provided => ({
+    ...provided,
+    height: 44,
+    borderRadius:10,
+    border:`1.5px solid ${t.border}`,
+    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  }),
   singleValue: provided => ({ ...provided, color: t.text, fontSize: 13, fontFamily: fonts.ui }),
-  placeholder: provided => ({ ...provided, color: t.textSub, fontSize: 13, fontFamily: fonts.ui }),
+  placeholder: provided => ({ ...provided, fontSize: 13, fontFamily: fonts.ui }),
   menu: provided => ({ ...provided, zIndex: 9999, background: t.bgCard, color: t.text }),
   menuList: provided => ({
     ...provided,
@@ -120,7 +126,7 @@ const NewApplicationModal = ({ onClose, onSuccess, t, isDark }) => {
   const utilityOptions = utilities
     .filter(u => ((u.utility_type || '').toLowerCase() === utility_type))
     .map(u => ({ value: u.utility_id, label: `${u.utility_name}` }));
-  const selectStyles = createReactSelectStyles(selectStyle, t, isDark, fonts);
+  const selectStyles = createReactSelectStyles(t, isDark, fonts);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>

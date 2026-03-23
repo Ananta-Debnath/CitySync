@@ -3,8 +3,8 @@ FIX AI CONTEXT ISSUE  --Fixed
 Gpay grad change
 
 ---REG---
-postal code needed??
-move logic to db???
+postal code needed?? ---DONE
+move logic to db??? ---DONE
 
 ---DASHBOARD---
 Include connection name   ---DONE

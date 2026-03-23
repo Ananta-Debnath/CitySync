@@ -28,7 +28,7 @@ api.interceptors.request.use(
 );
 
 // Region APIs
-export const getRegions = () => api.get('/regions');
+export const getRegions = () => api.get('/public/regions');
 export const createRegion = (data) => api.post('/regions', data);
 export const updateRegion = (id, data) => api.put(`/regions/${id}`, data);
 export const deleteRegion = (id) => api.delete(`/regions/${id}`);

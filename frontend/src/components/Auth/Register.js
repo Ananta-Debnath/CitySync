@@ -1,11 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Select from 'react-select';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../Layout/ThemeContext';
-import { register as registerApi } from '../../services/api';
+import { register as registerApi, getRegions } from '../../services/api';
 import { tokens, fonts } from '../../theme';
 import { SunIcon, MoonIcon } from '../../Icons';
 
 const steps = ['Account', 'Personal', 'Address'];
+
+export const createReactSelectStyles = (t, isDark, fonts) => ({
+  control: provided => ({
+    ...provided,
+    height: 44,
+    borderRadius:10,
+    border:`1.5px solid ${t.border}`,
+    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  }),
+  singleValue: provided => ({ ...provided, color: t.text, fontSize: 13, fontFamily: fonts.ui }),
+  placeholder: provided => ({ ...provided, fontSize: 13, fontFamily: fonts.ui }),
+  menu: provided => ({ ...provided, zIndex: 9999, background: t.bgCard, color: t.text }),
+  menuList: provided => ({
+    ...provided,
+    maxHeight: 140,
+    padding: 0,
+    background: isDark ? 'rgba(59,111,255,0.03)' : '#F5F8FF',
+    color: t.text,
+    fontSize: 13,
+    fontFamily: fonts.ui,
+  }),
+  option: (provided, state) => ({
+    ...provided,
+    background: state.isFocused || state.isSelected
+      ? (isDark ? 'rgba(59,111,255,0.08)' : '#E8F0FF')
+      : 'transparent',
+    color: t.text,
+    fontSize: 13,
+    fontFamily: fonts.ui,
+    cursor: 'pointer',
+  }),
+});
 
 const Register = () => {
   const { isDark, toggle } = useTheme();
@@ -20,9 +53,25 @@ const Register = () => {
     email:'', password:'', confirmPassword:'',
     firstName:'', lastName:'', phoneNumber:'', nationalId:'',
     dateOfBirth:'', gender:'',
-    houseNum:'', streetName:'', landmark:'', regionName:'', postalCode:'',
+    houseNum:'', streetName:'', landmark:'', regionId:'', postalCode:'',
     consumerType:'Residential',
   });
+  const [regions, setRegions] = useState([]);
+
+  const fetchRegions = async () => {
+    try {
+      const res = await getRegions();
+      const data = res.data;
+      setRegions(data);
+    } catch (err) {
+      console.error('Error fetching regions:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRegions();
+  }, []);
+
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
@@ -36,6 +85,9 @@ const Register = () => {
 
   const labelStyle = { display:'block', fontSize:12, fontWeight:500, color:t.textSub, marginBottom:6 };
 
+  const regionOptions = regions.map(r => ({ value: r.region_id, label: (r.region_name + ' - ' + r.postal_code) }));
+  const selectStyles = createReactSelectStyles(t, isDark, fonts);
+
   const validateStep = () => {
     if (step === 0) {
       if (!form.email || !form.password || !form.confirmPassword) return 'All fields are required';
@@ -46,7 +98,7 @@ const Register = () => {
       if (!form.firstName || !form.lastName || !form.phoneNumber || !form.nationalId) return 'All required fields must be filled';
     }
     if (step === 2) {
-      if (!form.houseNum || !form.streetName || !form.regionName || !form.postalCode) return 'All address fields are required';
+      if (!form.houseNum || !form.streetName || !form.regionId || !form.postalCode) return 'All address fields are required';
     }
     return null;
   };
@@ -137,15 +189,16 @@ const Register = () => {
 
     // Step 2 — Address
     <>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:16 }}>
+      {/* <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:16 }}> */}
+      <div style={{ marginBottom:16 }}>
         <div>
           <label style={labelStyle}>House / Flat No. *</label>
           <input type="text" value={form.houseNum} onChange={set('houseNum')} onFocus={() => setFocused('hn')} onBlur={() => setFocused(null)} placeholder="e.g. 14B" required style={inputStyle('hn')} />
         </div>
-        <div>
+        {/* <div>
           <label style={labelStyle}>Postal Code *</label>
           <input type="text" value={form.postalCode} onChange={set('postalCode')} onFocus={() => setFocused('pc')} onBlur={() => setFocused(null)} placeholder="e.g. 1000" required style={inputStyle('pc')} />
-        </div>
+        </div> */}
       </div>
       <div style={{ marginBottom:16 }}>
         <label style={labelStyle}>Street Name *</label>
@@ -153,7 +206,19 @@ const Register = () => {
       </div>
       <div style={{ marginBottom:16 }}>
         <label style={labelStyle}>Region / Area *</label>
-        <input type="text" value={form.regionName} onChange={set('regionName')} onFocus={() => setFocused('rn')} onBlur={() => setFocused(null)} placeholder="Dhaka Central" required style={inputStyle('rn')} />
+        {/* <input type="text" value={form.regionName} onChange={set('regionName')} onFocus={() => setFocused('rn')} onBlur={() => setFocused(null)} placeholder="Dhaka Central" required style={inputStyle('rn')} /> */}
+        <Select
+          options={regionOptions}
+          value={regionOptions.find(o => o.value === form.regionId) || null}
+          onChange={opt => {
+            const val = opt ? opt.value : '';
+            setForm(f => ({ ...f, regionId: val }));
+          }}
+          isClearable
+          styles={selectStyles}
+          menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+          placeholder="Select region"
+        />
       </div>
       <div style={{ marginBottom:4 }}>
         <label style={labelStyle}>Landmark (optional)</label>
