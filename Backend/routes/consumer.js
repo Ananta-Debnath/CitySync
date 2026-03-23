@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
-const { getPerson, getConnections, getConnectionDetails, getBills, getBillsById, getUsageHistory, 
+const { getConnections, getConnectionDetails, getBills, getBillsById, getUsageHistory, 
         makePayment, getComplaints, submitComplaint, getApplications, submitApplication,
         getProfile, updateProfile, updateAvatar, changePassword, deactivateAccount,
         getPaymentMethods, addPaymentMethod, setDefaultPaymentMethod, deletePaymentMethod,
@@ -11,7 +11,6 @@ const { getPerson, getConnections, getConnectionDetails, getBills, getBillsById,
 router.use(authMiddleware);
 router.use(roleMiddleware(['consumer']));
 
-router.get("/me", getPerson);
 router.get("/connections", getConnections);
 router.get("/connections/:id", getConnectionDetails);
 router.get("/bills", getBills);

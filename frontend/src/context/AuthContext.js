@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     const active = tkn ?? tokenRef.current;
     if (!active) { setUser(null); setLoading(false); return; }
     try {
-      const res = await fetch(`${API_URL}/api/consumer/me`, {
+      const res = await fetch(`${API_URL}/api/profile/me`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${active}`,
