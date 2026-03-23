@@ -2,31 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 
 const UTIL_ICONS  = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
-const UTIL_COLORS = {
-  electricity: { bg: 'linear-gradient(135deg,#F5A623,#FF6B00)', glow: 'rgba(245,166,35,0.3)'  },
-  water:       { bg: 'linear-gradient(135deg,#00C4FF,#0077FF)', glow: 'rgba(0,196,255,0.3)'   },
-  gas:         { bg: 'linear-gradient(135deg,#4ADE80,#16A34A)', glow: 'rgba(74,222,128,0.3)'  },
-};
-
-const STATUS_STYLE = {
-  Active:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
-  Connected:    { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
-  Inactive:     { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
-  Suspended:    { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
-  Disconnected: { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
-  Pending:      { lb:'#F3E8FF', lc:'#7E22CE', db:'#200D38', dc:'#C084FC' },
-};
 
 // ── Connection Card ───────────────────────────────────────────────────────────
 const ConnectionCard = ({ conn, t, isDark, onOpen }) => {
   const utilKey = conn.utility_tag;
-  const util    = UTIL_COLORS[utilKey] || UTIL_COLORS.electricity;
+  const util    = utilColors[utilKey] || utilColors.electricity;
   const Icon    = UTIL_ICONS[utilKey]  || ElectricityIcon;
-  const sc      = STATUS_STYLE[conn.connection_status] || STATUS_STYLE['Inactive'];
+  const sc      = statusColors[conn.connection_status] || statusColors['Inactive'];
   const connectionName = conn.connection_name || conn.utility_name;
 
   return (
@@ -48,12 +34,12 @@ const ConnectionCard = ({ conn, t, isDark, onOpen }) => {
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
       {/* Glow blob */}
-      <div style={{ position:'absolute', top:-30, right:-30, width:100, height:100, borderRadius:'50%', background:util.bg, opacity:0.08, filter:'blur(24px)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', top:-30, right:-30, width:100, height:100, borderRadius:'50%', background:util.gradient, opacity:0.08, filter:'blur(24px)', pointerEvents:'none' }} />
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:42, height:42, borderRadius:13, background:util.bg, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 12px ${util.glow}`, flexShrink:0 }}>
+          <div style={{ width:42, height:42, borderRadius:13, background:util.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 12px ${util.glow}`, flexShrink:0 }}>
             <Icon size={20} color="#fff" />
           </div>
           <div>

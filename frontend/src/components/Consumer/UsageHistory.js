@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities } from '../../theme';
+import { tokens, fonts, utilColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon } from '../../Icons';
 import { BarChart, LineChart } from '../Charts';
 
@@ -195,10 +195,10 @@ const UsageHistory = () => {
 
   // Fuzzy-match utility tag to theme key
   const resolveUtil = (tag) => {
-    if (!tag) return utilities.electricity;
-    if (utilities[tag]) return utilities[tag];
-    const k = Object.keys(utilities).find(k => tag.includes(k) || k.includes(tag));
-    return utilities[k] || utilities.electricity;
+    if (!tag) return utilColors.electricity;
+    if (utilColors[tag]) return utilColors[tag];
+    const k = Object.keys(utilColors).find(k => tag.includes(k) || k.includes(tag));
+    return utilColors[k] || utilColors.electricity;
   };
   const util = resolveUtil(activeUtility);
   const Icon = UtilIcons[activeUtility] || UtilIcons.electricity;

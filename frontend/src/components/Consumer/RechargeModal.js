@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fonts, utilities } from '../../theme';
+import { fonts, utilColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 
 const UTIL_ICONS = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
@@ -13,7 +13,7 @@ const RechargeModal = ({ connection, onClose, onSuccess, t, isDark }) => {
   const [error, setError] = useState('');
 
   const Icon = UTIL_ICONS[connection.utility_tag] || ConnectionIcon;
-  const util = utilities[connection.utility_tag] || utilities.payment;
+  const util = utilColors[connection.utility_tag] || utilColors.payment;
 
   const presets = [500, 1000, 1500, 2000];
 

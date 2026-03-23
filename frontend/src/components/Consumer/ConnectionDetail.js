@@ -2,21 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 import RechargeModal from './RechargeModal';
 import BillDetail from './BillDetail';
 
 const UTIL_ICONS = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
-
-const STATUS_STYLE = {
-  Active:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
-  Connected:    { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
-  Inactive:     { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
-  Suspended:    { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
-  Disconnected: { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
-  Pending:      { lb:'#F3E8FF', lc:'#7E22CE', db:'#200D38', dc:'#C084FC' },
-};
 
 const InfoRow = ({ label, value, t, mono }) => (
   <div style={{ display:'flex', justifyContent:'space-between', gap:14, alignItems:'center', padding:'11px 0', borderBottom:`1px solid ${t.border}` }}>
@@ -64,8 +55,8 @@ const ConnectionDetail = () => {
   }, [fetchConnection]);
 
   const util = useMemo(() => {
-    if (!connection) return utilities.electricity;
-    return utilities[connection.utility_tag] || utilities.electricity;
+    if (!connection) return utilColors.electricity;
+    return utilColors[connection.utility_tag] || utilColors.electricity;
   }, [connection]);
 
   const Icon = useMemo(() => {
@@ -74,8 +65,8 @@ const ConnectionDetail = () => {
   }, [connection]);
 
   const statusColor = useMemo(() => {
-    if (!connection) return STATUS_STYLE.Inactive;
-    return STATUS_STYLE[connection.connection_status] || STATUS_STYLE.Inactive;
+    if (!connection) return statusColors.Inactive;
+    return statusColors[connection.connection_status] || statusColors.Inactive;
   }, [connection]);
 
   const usageText = connection
@@ -295,10 +286,10 @@ const ConnectionDetail = () => {
           <div style={{ marginTop:10, marginBottom:10 }}>
             <div style={{ marginTop:6 }} />
             <div style={{ marginTop:6, marginBottom:0, borderRadius:12, padding:'12px 14px', background: (() => {
-                const m = connection && typeof connection.meter_active !== 'undefined' ? (connection.meter_active ? STATUS_STYLE.Active : STATUS_STYLE.Inactive) : STATUS_STYLE.Inactive;
+                const m = connection && typeof connection.meter_active !== 'undefined' ? (connection.meter_active ? statusColors.Active : statusColors.Inactive) : statusColors.Inactive;
                 return isDark ? m.db : m.lb;
               })(), color: (() => {
-                const m = connection && typeof connection.meter_active !== 'undefined' ? (connection.meter_active ? STATUS_STYLE.Active : STATUS_STYLE.Inactive) : STATUS_STYLE.Inactive;
+                const m = connection && typeof connection.meter_active !== 'undefined' ? (connection.meter_active ? statusColors.Active : statusColors.Inactive) : statusColors.Inactive;
                 return isDark ? m.dc : m.lc;
               })(), fontSize:12, fontWeight:600 }}>
               Meter Status: {typeof connection.meter_active !== 'undefined' ? (connection.meter_active ? 'Active' : 'Inactive') : '-'}

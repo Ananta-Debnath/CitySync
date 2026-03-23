@@ -1,5 +1,5 @@
 // ─── CitySync Design Tokens ───────────────────────────────────────────────────
-// Usage: import { tokens, utilities, statusColors, fonts, navItems } from '../theme';
+// Usage: import { tokens, utilColors, statusColors, fonts, navItems } from '../theme';
 
 export const fonts = {
   display: "'Syne', sans-serif",
@@ -48,12 +48,19 @@ export const tokens = {
   },
 };
 
-export const utilities = {
+export const utilColors = {
   electricity: { label: 'Electricity', gradient: 'linear-gradient(135deg,#F5A623,#FF5733)', glow: 'rgba(245,166,35,0.35)',  tag: 'electricity' },
   water:       { label: 'Water',       gradient: 'linear-gradient(135deg,#00C4FF,#0057B8)', glow: 'rgba(0,180,255,0.3)',   tag: 'water'       },
   gas:         { label: 'Gas',         gradient: 'linear-gradient(135deg,#FF4E6A,#C2003F)', glow: 'rgba(255,78,106,0.3)', tag: 'gas'         },
   payment:     { label: 'Payment',     gradient: 'linear-gradient(135deg,#7C5CFC,#3B6FFF)', glow: 'rgba(124,92,252,0.3)', tag: 'payment'     },
   complaint:   { label: 'Complaints',  gradient: 'linear-gradient(135deg,#FF9A3C,#FFD93D)', glow: 'rgba(255,154,60,0.3)', tag: 'complaint'   },
+};
+
+// Gradients and glows for payment methods
+export const paymentMethods = {
+  bank:           { grad: 'linear-gradient(135deg,#3B6FFF,#2952D9)', glow: 'rgba(59,111,255,0.25)' },
+  mobile_banking: { grad: 'linear-gradient(135deg,#E91E8C,#FF5C8A)', glow: 'rgba(233,30,140,0.25)' },
+  google_pay:     { grad: 'linear-gradient(135deg,#4285F4,#34A853)', glow: 'rgba(66,133,244,0.25)' },
 };
 
 export const statusColors = {
@@ -66,6 +73,7 @@ export const statusColors = {
   Disconnected: { lb:'#F1F5F9', lc:'#475569', db:'#111827', dc:'#64748B' },
   Connected:    { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Suspended:    { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
+  Inactive:     { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
   'In Progress':{ lb:'#EEF2FF', lc:'#4338CA', db:'#1E1B4B', dc:'#818CF8' },
 };
 

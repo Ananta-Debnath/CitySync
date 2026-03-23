@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fonts, utilities } from '../../theme';
+import { fonts, utilColors, paymentMethods } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
 import AddMethodModal from './AddMethodModal';
 
@@ -14,12 +14,6 @@ const METHOD_LABELS = {
   bank: 'Bank Transfer',
   mobile_banking: 'Mobile Banking',
   google_pay: 'Google Pay',
-};
-
-const METHOD_GRADS = {
-  bank: 'linear-gradient(135deg,#3B6FFF,#2952D9)',
-  mobile_banking: 'linear-gradient(135deg,#E91E8C,#FF5C8A)',
-  google_pay: 'linear-gradient(135deg,#4285F4,#34A853)',
 };
 
 const methodSub = (m) => {
@@ -82,7 +76,7 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
     }
   };
 
-  const util = utilities[bill.utility_tag] || utilities.payment;
+  const util = utilColors[bill.utility_tag] || utilColors.payment;
   const Icon = UtilIcons[bill.utility_tag] || BillIcon;
 
   return (
@@ -217,18 +211,18 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
                     textAlign: 'left',
                   }}
                 >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 9,
-                      background: METHOD_GRADS[m.method_name],
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 9,
+                        background: (paymentMethods[m.method_name] && paymentMethods[m.method_name].grad) || paymentMethods.bank.grad,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
                     {(() => {
                       const IconComp = m.method_name === 'bank' ? BankTransferIcon : (m.method_name === 'mobile_banking' ? MobileBankingIcon : GooglePayIcon);
                       return <IconComp size={16} color="#fff" />;

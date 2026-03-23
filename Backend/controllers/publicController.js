@@ -51,10 +51,30 @@ const getProviders = async (req, res) => {
   }
 };
 
+const getUtilityNames = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        u.utility_id,
+        u.utility_name, 
+        u.utility_type
+      FROM utility u
+      JOIN utility_region ur ON u.utility_id = ur.utility_id
+      WHERE ur.region_id = $1
+    `, [req.params.reg_id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Database error");
+  }
+};
+
+
 module.exports = {
   testDb,
   getRegions,
   getAllAddresses,
   getBankNames,
-  getProviders
+  getProviders,
+  getUtilityNames
 };

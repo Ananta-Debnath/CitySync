@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts } from '../../theme';
+import { tokens, fonts, paymentMethods } from '../../theme';
 import { BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
 import BillDetail from './BillDetail';
 import AddMethodModal from './AddMethodModal';
@@ -17,22 +17,16 @@ const METHOD_TYPES = {
   bank: {
     label: 'Bank Transfer',
     icon:  BankTransferIcon,
-    grad:  'linear-gradient(135deg,#3B6FFF,#2952D9)',
-    glow:  'rgba(59,111,255,0.3)',
     providers: ['BRAC Bank','Dutch-Bangla Bank','City Bank','Islami Bank','Eastern Bank','Standard Chartered'],
   },
   mobile_banking: {
     label: 'Mobile Banking',
     icon:  MobileBankingIcon,
-    grad:  'linear-gradient(135deg,#E91E8C,#FF5C8A)',
-    glow:  'rgba(233,30,140,0.3)',
     providers: ['bKash','Nagad','Rocket','SureCash','Upay'],
   },
   google_pay: {
     label: 'Google Pay',
     icon:  GooglePayIcon,
-    grad:  'linear-gradient(135deg,#4285F4,#34A853)',
-    glow:  'rgba(66,133,244,0.3)',
     providers: [],
   },
 };
@@ -50,14 +44,16 @@ const MethodCard = ({ method, onDelete, onSetDefault, t, isDark }) => {
   const cfg  = METHOD_TYPES[method.method_name] || METHOD_TYPES.bank;
   const Icon = cfg.icon;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const grad = (paymentMethods[method.method_name] && paymentMethods[method.method_name].grad) || paymentMethods.bank.grad;
+  const glow = (paymentMethods[method.method_name] && paymentMethods[method.method_name].glow) || paymentMethods.bank.glow;
 
   return (
     <div style={{ background: t.bgCard, border: `1px solid ${method.is_default ? t.primary : t.border}`, borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden', transition: 'border-color 0.2s' }}>
       {/* Glow blob */}
-      <div style={{ position: 'absolute', top: -20, right: -20, width: 70, height: 70, borderRadius: '50%', background: cfg.grad, opacity: 0.08, filter: 'blur(16px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 70, height: 70, borderRadius: '50%', background: grad, opacity: 0.08, filter: 'blur(16px)', pointerEvents: 'none' }} />
 
       {/* Icon */}
-      <div style={{ width: 42, height: 42, borderRadius: 12, background: cfg.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${cfg.glow}`, flexShrink: 0, color: '#fff' }}>
+      <div style={{ width: 42, height: 42, borderRadius: 12, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${glow}`, flexShrink: 0, color: '#fff' }}>
         <Icon />
       </div>
 
@@ -117,6 +113,9 @@ const HistoryRow = ({ p, t, onOpenBill }) => {
   const cfg  = METHOD_TYPES[p.method_name] || METHOD_TYPES.bank;
   const Icon = cfg.icon;
 
+  const grad = (paymentMethods[p.method_name] && paymentMethods[p.method_name].grad) || paymentMethods.bank.grad;
+  const glow = (paymentMethods[p.method_name] && paymentMethods[p.method_name].glow) || paymentMethods.bank.glow;
+
   const billId = p.bill_document_id;
   const isClickable = Boolean(billId);
 
@@ -137,7 +136,7 @@ const HistoryRow = ({ p, t, onOpenBill }) => {
         cursor: isClickable ? 'pointer' : 'default',
       }}
     >
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: cfg.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${cfg.glow}`, flexShrink: 0, color: '#fff' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${glow}`, flexShrink: 0, color: '#fff' }}>
         <Icon />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>

@@ -8,11 +8,11 @@ const CheckIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
 
-const defaultMethodTypes = {
-  bank: { label: 'Bank Transfer', icon: () => <div style={{width:18,height:18,borderRadius:4,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#3B6FFF,#2952D9)', glow: 'rgba(59,111,255,0.3)', providers: ['BRAC Bank','Dutch-Bangla Bank'] },
-  mobile_banking: { label: 'Mobile Banking', icon: () => <div style={{width:18,height:18,borderRadius:9,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#E91E8C,#FF5C8A)', glow: 'rgba(233,30,140,0.3)', providers: ['bKash','Nagad'] },
-  google_pay: { label: 'Google Pay', icon: () => <div style={{width:18,height:18,borderRadius:4,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#4285F4,#34A853)', glow: 'rgba(66,133,244,0.3)', providers: [] },
-};
+// const defaultMethodTypes = {
+//   bank: { label: 'Bank Transfer', icon: () => <div style={{width:18,height:18,borderRadius:4,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#3B6FFF,#2952D9)', glow: 'rgba(59,111,255,0.3)', providers: ['BRAC Bank','Dutch-Bangla Bank'] },
+//   mobile_banking: { label: 'Mobile Banking', icon: () => <div style={{width:18,height:18,borderRadius:9,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#E91E8C,#FF5C8A)', glow: 'rgba(233,30,140,0.3)', providers: ['bKash','Nagad'] },
+//   google_pay: { label: 'Google Pay', icon: () => <div style={{width:18,height:18,borderRadius:4,background:'#fff'}}/>, grad: 'linear-gradient(135deg,#4285F4,#34A853)', glow: 'rgba(66,133,244,0.3)', providers: [] },
+// };
 
 // ── Method type config ────────────────────────────────────────────────────────
 const METHOD_TYPES = {

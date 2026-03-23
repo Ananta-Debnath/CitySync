@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities, statusColors } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import {
   ElectricityIcon, WaterIcon, GasIcon,
   PaymentIcon, ComplaintIcon, BillIcon, UsageIcon
@@ -46,7 +46,7 @@ const StatCard = ({ label, value, sub, gradient, glow, Icon, onClick, t }) => (
 
 // ── Bill Row ──────────────────────────────────────────────────────────────────
 const BillRow = ({ bill, isDark, t }) => {
-  const util = utilities[bill.utility_tag] || utilities.electricity;
+  const util = utilColors[bill.utility_tag] || utilColors.electricity;
   const Icon = UtilIcons[bill.utility_tag] || ElectricityIcon;
   const status = statusColors[bill.status] || statusColors['Pending'];
 
@@ -187,8 +187,8 @@ const ConsumerDashboard = () => {
           label="Total Due"
           value={`৳ ${totalDue.toLocaleString()}`}
           sub="Across all connections"
-          gradient={utilities.payment.gradient}
-          glow={utilities.payment.glow}
+          gradient={utilColors.payment.gradient}
+          glow={utilColors.payment.glow}
           Icon={PaymentIcon}
           onClick={() => navigate('/consumer/bills')}
           t={t}
@@ -207,8 +207,8 @@ const ConsumerDashboard = () => {
           label="Bills This Month"
           value={bills.length}
           sub="View full history"
-          gradient={utilities.complaint.gradient}
-          glow={utilities.complaint.glow}
+          gradient={utilColors.complaint.gradient}
+          glow={utilColors.complaint.glow}
           Icon={UsageIcon}
           onClick={() => navigate('/consumer/bills')}
           t={t}
@@ -217,8 +217,8 @@ const ConsumerDashboard = () => {
           label="Complaints"
           value={`${openComplaints} open`}
           sub={openComplaints === 0 ? 'No active complaints' : `${complaints.length} total`}
-          gradient={utilities.complaint.gradient}
-          glow={utilities.complaint.glow}
+          gradient={utilColors.complaint.gradient}
+          glow={utilColors.complaint.glow}
           Icon={ComplaintIcon}
           onClick={() => navigate('/consumer/complaints')}
           t={t}
@@ -263,13 +263,13 @@ const ConsumerDashboard = () => {
           ) : (
             <>
               {connections.find(c => c.utility_tag === 'electricity') && (
-                <UsageBar label="Electricity" used={connections.find(c => c.utility_tag === 'electricity')?.units_used || 0} total={500} gradient={utilities.electricity.gradient} glow={utilities.electricity.glow} t={t} />
+                <UsageBar label="Electricity" used={connections.find(c => c.utility_tag === 'electricity')?.units_used || 0} total={500} gradient={utilColors.electricity.gradient} glow={utilColors.electricity.glow} t={t} />
               )}
               {connections.find(c => c.utility_tag === 'water') && (
-                <UsageBar label="Water" used={connections.find(c => c.utility_tag === 'water')?.units_used || 0} total={300} gradient={utilities.water.gradient} glow={utilities.water.glow} t={t} />
+                <UsageBar label="Water" used={connections.find(c => c.utility_tag === 'water')?.units_used || 0} total={300} gradient={utilColors.water.gradient} glow={utilColors.water.glow} t={t} />
               )}
               {connections.find(c => c.utility_tag === 'gas') && (
-                <UsageBar label="Gas" used={connections.find(c => c.utility_tag === 'gas')?.units_used || 0} total={200} gradient={utilities.gas.gradient} glow={utilities.gas.glow} t={t} />
+                <UsageBar label="Gas" used={connections.find(c => c.utility_tag === 'gas')?.units_used || 0} total={200} gradient={utilColors.gas.gradient} glow={utilColors.gas.glow} t={t} />
               )}
             </>
           )}
@@ -281,7 +281,7 @@ const ConsumerDashboard = () => {
               <div style={{ fontSize:12, color:t.textMuted }}>No connections found</div>
             ) : (
               connections.map((conn, i) => {
-                const util = utilities[conn.utility_tag] || utilities.electricity;
+                const util = utilColors[conn.utility_tag] || utilColors.electricity;
                 const Icon = UtilIcons[conn.utility_tag] || ElectricityIcon;
                 const connectionName = conn.connection_name || util.label;
                 return (

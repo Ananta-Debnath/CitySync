@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities } from '../../theme';
+import { tokens, fonts, utilColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon } from '../../Icons';
 import PayBillModal from './PayBillModal';
 
@@ -70,7 +70,7 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
     </div>
   );
 
-  const util   = utilities[bill.utility_tag] || utilities.payment;
+  const util   = utilColors[bill.utility_tag] || utilColors.payment;
   const Icon   = UtilIcons[bill.utility_tag] || BillIcon;
   const isPayable = ['Pending', 'Overdue'].includes(bill.status);
 

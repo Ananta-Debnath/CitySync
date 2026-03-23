@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities, statusColors } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import { ComplaintIcon, ElectricityIcon, WaterIcon, GasIcon } from '../../Icons';
 
 const UtilIcons = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
@@ -56,7 +56,7 @@ const FileModal = ({ connections, onClose, onSuccess, t, isDark }) => {
             <option value="">General complaint</option>
             {connections.map(c => (
               <option key={c.connection_id} value={c.connection_id}>
-                {c.utility_name} — ID #{c.connection_id}
+                {c.connection_name} — {c.utility_name}
               </option>
             ))}
           </select>
@@ -92,7 +92,7 @@ const FileModal = ({ connections, onClose, onSuccess, t, isDark }) => {
 // ── Complaint Card ─────────────────────────────────────────────────────────────
 const ComplaintCard = ({ complaint, t, isDark }) => {
   const [expanded, setExpanded] = useState(false);
-  const util   = utilities[complaint.utility_tag] || null;
+  const util   = utilColors[complaint.utility_tag] || null;
   const Icon   = UtilIcons[complaint.utility_tag] || null;
   const status = statusColors[complaint.status] || statusColors['Pending'];
 
@@ -116,7 +116,7 @@ const ComplaintCard = ({ complaint, t, isDark }) => {
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:4 }}>
             <div style={{ fontSize:13, fontWeight:600, color:t.text }}>
-              {complaint.utility_name ? `${complaint.utility_name} Complaint` : 'General Complaint'}
+              {complaint.connection_name ? `${complaint.connection_name} (${complaint.utility_name}) - Complaint` : 'General Complaint'}
             </div>
             <span style={{ fontSize:11, fontWeight:500, padding:'3px 10px', borderRadius:100, background: isDark ? status.db : status.lb, color: isDark ? status.dc : status.lc, flexShrink:0 }}>
               {complaint.status}

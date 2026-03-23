@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, use } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilities, statusColors } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon } from '../../Icons';
 import { DonutChart, ChartLegend } from '../Charts';
 import PayBillModal from './PayBillModal';
@@ -13,7 +13,7 @@ const BILL_TYPES = ['All', 'Prepaid', 'Postpaid'];
 
 // ── Bill Card ─────────────────────────────────────────────────────────────────
 const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
-  const util     = utilities[bill.utility_tag] || utilities.payment;
+  const util     = utilColors[bill.utility_tag] || utilColors.payment;
   const Icon     = UtilIcons[bill.utility_tag] || BillIcon;
   const status   = statusColors[bill.status]   || statusColors['Pending'];
   const isPayable= ['Pending','Overdue'].includes(bill.status);
@@ -109,14 +109,14 @@ const MyBills = () => {
   ].filter(s => s.value > 0).map(s => ({ ...s, pct: s.value / (bills.length||1) }));
 
   // Spending by utility
-  const utilitySpend = Object.values(utilities).map(u => {
+  const utilitySpend = Object.values(utilColors).map(u => {
     const total = bills.filter(b => b.utility_tag === u.tag).reduce((s,b) => s + parseFloat(b.amount||0), 0);
     const color = u.gradient.match(/#[A-Fa-f0-9]{6}/)?.[0] || '#3B6FFF';
     return { label: u.label, value: Math.round(total), color, pct: 0 };
   }).filter(u => u.value > 0).map(u => ({ ...u, pct: u.value / bills.reduce((s,b) => s + parseFloat(b.amount||0), 0.001) }));
 
   // Connections by utility (count of bills per utility)
-  const utilityCount = Object.values(utilities).map(u => {
+  const utilityCount = Object.values(utilColors).map(u => {
     const count = bills.filter(b => b.utility_tag === u.tag).length;
     const color = u.gradient.match(/#[A-Fa-f0-9]{6}/)?.[0] || '#3B6FFF';
     return { label: u.label, value: count, color, pct: 0 };
@@ -235,7 +235,7 @@ const MyBills = () => {
       <div style={{ display:'flex', gap:10, marginBottom:10, flexWrap:'wrap' }}>
         {[{ id: 'All', name: 'All' }, ...(connections || [])].map(tab => {
           const active = connectionFilter === tab.id;
-          const u = utilities[tab.utility] || utilities.payment;
+          const u = utilColors[tab.utility] || utilColors.payment;
           const Ic = UtilIcons[tab.utility] || BillIcon;
           return (
             <button key={tab.id} onClick={() => setConnectionFilter(tab.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', borderRadius:12, border:`1.5px solid ${active ? 'transparent' : t.border}`, background: active ? u.gradient : (isDark ? t.bgCard : '#fff'), cursor:'pointer', transition:'all 0.2s', boxShadow: active ? `0 4px 14px ${u.glow}` : 'none' }}>

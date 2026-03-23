@@ -1,5 +1,7 @@
 FIX AI CONTEXT ISSUE  --Fixed
 
+Gpay grad change
+
 ---REG---
 postal code needed??
 move logic to db???
@@ -46,12 +48,13 @@ Have delay in fetching data. --optional
 
 ---APPLICATION---
 address typing glitch ---DONE
-Change address method
-Have a tick box for my address
-New conn utility type - LV, MV, HV??
+Change address method ---DONE
+Have a tick box for my address ---DONE
+New conn utility type - LV, MV, HV?? ---DONE
 
 ---COMPLAINTS---
 dont show assigned tick
+Fix related connection  ---DONE
 
 ---PROFILE---
 change pass text field eye disappear after reclicking text box  --DONE

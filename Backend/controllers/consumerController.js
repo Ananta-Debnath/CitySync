@@ -5,8 +5,17 @@ const pool = require("../db");
 const getPerson = async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT *
-      FROM person
+      SELECT
+        p.*,
+        a.house_num,
+        a.street_name,
+        a.landmark,
+        a.region_id,
+        r.region_name,
+        r.postal_code
+      FROM person p
+      JOIN address a ON p.address_id = a.address_id
+      JOIN region r ON a.region_id = r.region_id
       WHERE person_id = $1
     `, [req.user.person_id]);
     res.json(result.rows[0]);
@@ -26,6 +35,7 @@ const getConnections = async (req, res) => {
         uc.connection_date,
         uc.payment_type,
         uc.connection_type,
+        u.utility_name,
         LOWER(u.utility_type) AS utility_tag,
         u.unit_of_measurement,
         a.house_num,
@@ -315,6 +325,7 @@ const getComplaints = async (req, res) => {
         c.resolution_date,
         c.remarks,
         c.connection_id,
+        uc.connection_name,
         u.utility_name,
         LOWER(u.utility_name) AS utility_tag
       FROM complaint c
@@ -356,7 +367,6 @@ const getApplications = async (req, res) => {
     const result = await pool.query(`
       SELECT
         ca.application_id,
-        ca.utility_type,
         ca.application_date,
         ca.status,
         ca.requested_connection_type,
@@ -364,10 +374,15 @@ const getApplications = async (req, res) => {
         ca.review_date,
         ca.approval_date,
         ca.priority,
+        u.utility_name,
+        u.utility_type,
+        r.region_name,
         p.first_name || ' ' || p.last_name AS reviewed_by_name
       FROM connection_application ca
       LEFT JOIN employee e  ON ca.reviewed_by = e.person_id
       LEFT JOIN person   p  ON e.person_id    = p.person_id
+      LEFT JOIN utility  u  ON ca.utility_id  = u.utility_id
+      LEFT JOIN region   r  ON ca.region_id   = r.region_id
       WHERE ca.consumer_id = $1
       ORDER BY ca.application_date DESC
     `, [req.user.person_id]);
@@ -380,18 +395,18 @@ const getApplications = async (req, res) => {
 }
 
 const submitApplication = async (req, res) => {
-  const { utility_type, requested_connection_type, address, priority } = req.body;
+  const { utility_id, region_id, requested_connection_type, address, priority } = req.body;
 
-  if (!utility_type || !requested_connection_type || !address)
-    return res.status(400).json({ error: 'utility_type, requested_connection_type and address are required' });
+  if (!utility_id || !region_id || !requested_connection_type || !address)
+    return res.status(400).json({ error: 'utility_id, region_id, requested_connection_type and address are required' });
 
   try {
     const result = await pool.query(`
       INSERT INTO connection_application
-        (consumer_id, utility_type, requested_connection_type, address, priority, status, application_date)
-      VALUES ($1, $2, $3, $4, $5, 'Pending', CURRENT_DATE)
+        (consumer_id, utility_id, region_id, requested_connection_type, address, priority, status, application_date)
+      VALUES ($1, $2, $3, $4, $5, $6, 'Pending', CURRENT_DATE)
       RETURNING *
-    `, [req.user.person_id, utility_type, requested_connection_type, address, priority || 'Normal']);
+    `, [req.user.person_id, utility_id, region_id, requested_connection_type, address, priority || 'Normal']);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
