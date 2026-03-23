@@ -40,8 +40,8 @@ const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14, padding:'12px 0', borderTop:`1px solid ${t.border}`, borderBottom:`1px solid ${t.border}` }}>
         {(() => {
           const unitsVal = (bill.bill_type?.toLowerCase() === 'prepaid') ? (bill.energy_amount || '—') : (bill.unit_consumed || '—');
-          const dateLabel = bill.status === 'Paid' ? 'Paid' : 'Due';
-          const dateVal = bill.status === 'Paid' ? bill.payment_date : bill.due_date;
+          const dateLabel = isPayable ? 'Due' : 'Paid';
+          const dateVal = isPayable ? bill.due_date : bill.payment_date;
           const dateDisplay = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—';
           const items = [
             { label: 'Amount', val: `৳ ${parseFloat(bill.amount).toLocaleString()}` },

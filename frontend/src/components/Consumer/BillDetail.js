@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilColors } from '../../theme';
+import { tokens, fonts, utilColors, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon } from '../../Icons';
 import PayBillModal from './PayBillModal';
 
@@ -73,6 +73,8 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
   const util   = utilColors[bill.utility_tag] || utilColors.payment;
   const Icon   = UtilIcons[bill.utility_tag] || BillIcon;
   const isPayable = ['Pending', 'Overdue'].includes(bill.status);
+  const isPostpaid = (bill?.bill_type || '').toLowerCase() === 'postpaid';
+  const status = statusColors[bill.status] || statusColors['Pending'];
 
   const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : '—';
 
@@ -107,30 +109,46 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
                 <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', fontFamily:fonts.mono }}>{bill.period}</div>
               </div>
             </div>
-            <span style={{ fontSize:12, fontWeight:500, padding:'4px 12px', borderRadius:100, background:'rgba(255,255,255,0.2)', color:'#fff', backdropFilter:'blur(4px)' }}>
+            <span style={{
+              fontSize:12,
+              fontWeight:500,
+              padding:'4px 12px',
+              borderRadius:100,
+              background: isDark ? status.db : status.lb,
+              color: isDark ? status.dc : status.lc,
+              border: `1px solid ${isDark ? status.dc + '22' : status.lc + '22'}`,
+              backdropFilter:'blur(4px)'
+            }}>
               {bill.status}
             </span>
           </div>
 
           <div style={{ marginTop:24, position:'relative' }}>
             <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', fontFamily:fonts.mono, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Total Amount</div>
-            <div style={{ fontSize:40, fontWeight:700, color:'#fff', letterSpacing:'-1px', fontFamily:fonts.ui }}>৳ {parseFloat(bill.total_amount).toLocaleString()}</div>
+            <div style={{ fontSize:40, fontWeight:700, color:'#fff', letterSpacing:'-1px', fontFamily:fonts.ui }}>৳ {parseFloat(bill.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
         </div>
 
         {/* Quick stats row */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', background:t.bgCard }}>
-          {[
-            { label:'Units Used',     val:`${bill.unit_consumed}`, sub: bill.unit_of_measurement || 'units' },
-            { label:'Energy Charge',  val:`৳ ${parseFloat(bill.energy_amount||0).toLocaleString()}`, sub:'Excl. taxes' },
-            { label:'Due Date',       val: bill.due_date ? new Date(bill.due_date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—', sub:'Payment deadline' },
-          ].map((s,i) => (
-            <div key={s.label} style={{ padding:'16px 20px', borderRight: i < 2 ? `1px solid ${t.border}` : 'none', borderTop:`1px solid ${t.border}` }}>
-              <div style={{ fontSize:10, color:t.textMuted, fontFamily:fonts.mono, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{s.label}</div>
-              <div style={{ fontSize:16, fontWeight:600, color:t.text, fontFamily:fonts.ui, marginBottom:2 }}>{s.val}</div>
-              <div style={{ fontSize:11, color:t.textMuted }}>{s.sub}</div>
-            </div>
-          ))}
+          {(() => {
+            const dateLabel = isPayable ? 'Due' : 'Paid';
+            const dateVal = isPayable ? bill.due_date : bill.payment_date;
+            const dateDisplay = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+            const items = [
+              { label:'Units Used',     val:`${bill.unit_consumed}`, sub: bill.unit_of_measurement || 'units' },
+              { label:'Energy Charge',  val:`৳ ${parseFloat(bill.energy_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub:'Excl. taxes' },
+              { label: dateLabel, val: dateDisplay },
+            ];
+  
+            return items.map((s, i) => (
+              <div key={s.label} style={{ padding:'16px 20px', borderRight: i < 2 ? `1px solid ${t.border}` : 'none', borderTop:`1px solid ${t.border}` }}>
+                <div style={{ fontSize:10, color:t.textMuted, fontFamily:fonts.mono, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{s.label}</div>
+                <div style={{ fontSize:16, fontWeight:600, color:t.text, fontFamily:fonts.ui, marginBottom:2 }}>{s.val}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{s.sub}</div>
+              </div>
+            ));
+          })()}
         </div>
       </div>
 
@@ -141,9 +159,22 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
         <Row label="Bill Type"       value={bill.bill_type}                                                       t={t} />
         <Row label="Tariff Plan"     value={bill.tariff_name}                                                     t={t} />
         {/* <Row label="Billing Method"  value={bill.billing_method}                                                  t={t} /> */}
-        <Row label="Period"          value={`${fmt(bill.bill_period_start)} — ${fmt(bill.bill_period_end)}`}      t={t} />
+        {isPostpaid && <Row label="Period"          value={`${fmt(bill.bill_period_start)} — ${fmt(bill.bill_period_end)}`}      t={t} />}
         <Row label="Issue Date"    value={fmt(bill.bill_generation_date)}                                       t={t} />
-        {bill.remarks && <Row label="Remarks" value={bill.remarks} t={t} />}
+        <Row label="Address"       value={bill.address}                                                         t={t} />
+        {bill.fixed_charges && bill.fixed_charges.length > 0 && (
+          bill.fixed_charges.map((fc, i) => (
+            <Row
+              key={i}
+              label={fc.charge_name + (fc.period ? ' - ' + fc.period : '')}
+              value={`৳ ${parseFloat(fc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              t={t}
+            />
+          ))
+        )}
+        <Row label="Energy cost" value={`৳ ${parseFloat(bill.energy_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
+        <Row label="Gross amount" value={`৳ ${parseFloat(bill.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
+        {isPostpaid && bill.remarks && <Row label="Remarks" value={bill.remarks} t={t} />}
       </div>
 
       {/* Pay button (if payable) */}

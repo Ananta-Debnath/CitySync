@@ -192,21 +192,55 @@ const getBillsById = async (req, res) => {
         bp.bill_period_end,
         bp.due_date,
         bp.remarks,
+        TO_CHAR(bp.bill_period_start, 'Mon YYYY') AS period,
+        ps.prepaid_token,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'charge_name', f.charge_name, 
+              'amount', fca.amount,
+              'period', fca.timeframe
+            )
+          ) FILTER (WHERE f.fixed_charge_id IS NOT NULL),
+          '[]'
+        ) AS fixed_charges,
         u.utility_name,
         u.unit_of_measurement,
         LOWER(u.utility_name)                  AS utility_tag,
-        TO_CHAR(bp.bill_period_start, 'Mon YYYY') AS period,
         t.tariff_name,
         t.billing_method,
-        uc.connection_id,
-        uc.payment_type
+        p.payment_date,
+        get_address_text(m.address_id) AS address
       FROM bill_document bd
-      JOIN utility_connection uc ON bd.connection_id     = uc.connection_id
-      JOIN tariff  t              ON uc.tariff_id         = t.tariff_id
-      JOIN utility u              ON t.utility_id         = u.utility_id
-      LEFT JOIN bill_postpaid bp  ON bd.bill_document_id  = bp.bill_document_id
+      JOIN utility_connection uc         ON bd.connection_id     = uc.connection_id
+      LEFT JOIN meter m                  ON uc.meter_id          = m.meter_id
+      JOIN tariff  t                     ON uc.tariff_id         = t.tariff_id
+      JOIN utility u                     ON t.utility_id         = u.utility_id
+      LEFT JOIN bill_postpaid bp         ON bd.bill_document_id  = bp.bill_document_id
+      LEFT JOIN prepaid_statement ps     ON bd.bill_document_id  = ps.bill_document_id
+      LEFT JOIN fixed_charge_applied fca ON bd.bill_document_id  = fca.bill_document_id
+      LEFT JOIN fixed_charge f           ON fca.fixed_charge_id  = f.fixed_charge_id
+      LEFT JOIN payment p                ON bd.bill_document_id = p.bill_document_id
       WHERE bd.bill_document_id = $1
         AND uc.consumer_id      = $2
+      GROUP BY 
+        bd.bill_document_id,
+        bd.bill_type,
+        bd.bill_generation_date,
+        bd.unit_consumed,
+        bd.energy_amount,
+        bd.total_amount,
+        bp.bill_period_start,
+        bp.bill_period_end,
+        bp.due_date,
+        bp.remarks,
+        ps.prepaid_token,
+        u.utility_name,
+        u.unit_of_measurement,
+        t.tariff_name,
+        t.billing_method,
+        p.payment_date,
+        m.address_id
     `, [req.params.id, req.user.person_id]);
 
     if (result.rows.length === 0)

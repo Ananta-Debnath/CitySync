@@ -10,7 +10,27 @@
 
 
 -- FUNCTIONS
-CREATE OR REPLACE FUNCTION get_rate(p_tariff_id INTEGER, p_slab_num INTEGER) RETURNS NUMERIC(10, 2)
+CREATE OR REPLACE FUNCTION get_address_text(p_address_id INTEGER)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN (
+        SELECT CONCAT_WS(', ',
+            a.house_num,
+            a.street_name,
+            a.landmark,        -- NULL will be skipped automatically
+            CONCAT(r.region_name, '-', r.postal_code)
+        )
+        FROM address a
+        JOIN region r ON a.region_id = r.region_id
+        WHERE a.address_id = p_address_id
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_rate(p_tariff_id INTEGER, p_slab_num INTEGER)
+RETURNS NUMERIC(10, 2)
 LANGUAGE plpgsql
 AS $$
 DECLARE
