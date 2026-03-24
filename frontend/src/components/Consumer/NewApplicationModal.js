@@ -87,9 +87,9 @@ const NewApplicationModal = ({ onClose, onSuccess, t, isDark }) => {
 	const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-    const [regRes, meRes] = await Promise.all([
-      authFetch(`/api/public/regions`),
-      authFetch(`/api/consumer/me`),
+      const [regRes, meRes] = await Promise.all([
+        authFetch(`/api/public/regions`),
+        authFetch(`/api/profile/me`),
       ]);
       const regData = await regRes.json();
       if (!regRes.ok) throw new Error(regData.error);

@@ -25,6 +25,7 @@ details -> pay --fix   ---FIXED, needs to be centered
 reload after payment ---DONE
 color code for paid, unpaid   --- has to be changed in theme.js  ---DONE
 add filters  ---DONE
+change first headers amount colors
 
 ---BillDetail---
 due and paid alternate  ---DONE
@@ -62,3 +63,9 @@ change pass text field eye disappear after reclicking text box  --DONE
 the admin only thing???
 Profile pic
 
+
+
+-------------------EMPLOYEE------------------
+
+active conn count
+some kind of graph
