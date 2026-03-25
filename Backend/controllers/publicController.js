@@ -14,7 +14,7 @@ const testDb = async (req, res) => {
 const getRegions = async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM REGION");
-    res.json(result.rows);
+    res.json({ count: result.rows.length, data: result.rows });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Database error");

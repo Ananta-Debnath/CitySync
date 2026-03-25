@@ -146,22 +146,19 @@ ORDER BY m.month_start DESC;
 
 
 
-SELECT
-        ca.application_id,
+
+
+
+SELECT 
+        uc.*, 
+        p.first_name, p.last_name,
         u.utility_name,
-        ca.application_date,
-        ca.status,
-        ca.requested_connection_type,
-        ca.address,
-        r.region_name,
-        ca.review_date,
-        ca.approval_date,
-        ca.priority,
-        p.first_name || ' ' || p.last_name AS reviewed_by_name
-      FROM connection_application ca
-      LEFT JOIN employee e  ON ca.reviewed_by = e.person_id
-      LEFT JOIN person   p  ON e.person_id    = p.person_id
-      LEFT JOIN utility  u  ON ca.utility_id  = u.utility_id
-      LEFT JOIN region   r  ON ca.region_id   = r.region_id
-      WHERE ca.consumer_id = $1
-      ORDER BY ca.application_date DESC
+        get_address_text(m.address_id) AS address,
+        t.tariff_name
+      FROM utility_connection uc
+      LEFT JOIN consumer cons ON uc.consumer_id = cons.person_id
+      LEFT JOIN person p ON cons.person_id = p.person_id
+      LEFT JOIN tariff t ON uc.tariff_id = t.tariff_id
+      LEFT JOIN utility u ON t.utility_id = u.utility_id
+      LEFT JOIN meter m ON uc.meter_id = m.meter_id
+      ORDER BY uc.connection_id

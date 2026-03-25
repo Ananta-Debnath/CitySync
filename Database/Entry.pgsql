@@ -30,6 +30,13 @@ BEGIN
     INSERT INTO employee (person_id, role, employee_num, hire_date, employment_status)
     VALUES (v_person_id, 'admin', 'EMP001', '2020-01-01', 'Active');
 
+    -- pass -> worker
+    INSERT INTO account (person_id, account_type, email, password_hashed)
+    VALUES (v_person_id, 'field_worker', 'john.doe@example.com', '$2b$10$GcKe93dp2qlxP9r4Qg4LbuVVLID9rMddymh0GaKbB.rRLjbyxwMem');
+    
+    INSERT INTO field_worker (person_id, assigned_region_id, expertise, skillset)
+    VALUES (v_person_id, 14, 'Meter Installation', 'Electrical, Plumbing');
+
     INSERT INTO meter (address_id, meter_type, meter_status)
     VALUES (v_address_id, 'Electricity', 'Active')
     RETURNING meter_id INTO v_meter_id;

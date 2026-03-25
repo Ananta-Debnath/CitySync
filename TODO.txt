@@ -1,5 +1,7 @@
 FIX AI CONTEXT ISSUE  --Fixed
 
+AvatarContext api
+
 Gpay grad change
 VAT
 
@@ -69,3 +71,28 @@ Profile pic
 
 active conn count
 some kind of graph
+approve readings
+
+
+---Connection---
+Show details
+
+---Tariff---
+No edit on existing tariff, only new creations (fixed_charges can stay) no deletion either
+add utility button
+allow tariff id in add tariff - same for slab
+
+---Applcation---
+Have a approve_app in DASHBOARD
+Add filter
+
+---Complaints---
+Show conn or general
+No choice of worker just assign (rest will be done in backend)
+
+
+
+-------------------WORKER------------------
+
+log reading doesnt genereate usage immediately
+tariff details in log

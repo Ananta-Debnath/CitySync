@@ -19,5 +19,4 @@ const createUser = async (email, password, role) => {
   }
 };
 
-createUser("john.doe@example.com", "12345678", "consumer");
-createUser("john.doe@example.com", "employee", "employee");
+createUser("john.doe@example.com", "worker", "field_worker");
