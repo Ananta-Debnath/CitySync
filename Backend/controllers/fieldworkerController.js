@@ -56,6 +56,16 @@ const updateJobStatus = async (req, res) => {
       return res.status(404).json({ error: 'Job not found or not assigned to you' });
     }
 
+    const updatedComplaint = result.rows[0];
+
+    // Send notification to consumer
+    const { sendNotification } = require('../socket');
+    const msg = `Complaint #${updatedComplaint.complaint_id} status updated to ${updatedComplaint.status}`;
+    const dotColor = updatedComplaint.status === 'Resolved' ? 'bg-lime' : 'bg-orange';
+    sendNotification(updatedComplaint.consumer_id, msg, dotColor);
+
+    res.json({ message: 'Job status updated', data: updatedComplaint });
+
     res.json({ message: 'Job status updated', data: result.rows[0] });
   } catch (err) {
     console.error(err);

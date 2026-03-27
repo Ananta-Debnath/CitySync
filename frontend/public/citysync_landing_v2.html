@@ -1330,6 +1330,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ identifier, password }),
       });
 
+      // const res = await loginApi({ identifier, password });
+
       let data = null;
       try { data = await res.json(); } catch { /* ignore */ }
       if (!res.ok) {
@@ -1338,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // AuthContext expects these exact keys in localStorage
       window.parent.localStorage.setItem('citysync_token', data?.token || data?.accessToken);
-      window.parent.localStorage.setItem('citysync_user', JSON.stringify(data?.user));
+      // window.parent.localStorage.setItem('citysync_user', JSON.stringify(data?.user));
 
       // Close and redirect to the correct dashboard
       closeModal();

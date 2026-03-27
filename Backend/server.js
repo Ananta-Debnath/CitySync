@@ -17,10 +17,17 @@ app.use("/api/profile", require("./routes/profile"));
 app.use("/api/consumer", require("./routes/consumer"));
 app.use("/api/admin", require('./routes/admin'));
 app.use("/api/fieldworker", require("./routes/fieldworker"));
+app.use('/api/notifications', require("./routes/notifications"));
 app.use('/api/ai', require("./routes/ai"));
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const http = require('http');
+const server = http.createServer(app);
+
+const { initSocket } = require('./socket');
+initSocket(server);
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
