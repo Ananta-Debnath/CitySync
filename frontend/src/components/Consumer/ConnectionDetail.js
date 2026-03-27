@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilColors, statusColors } from '../../theme';
+import { tokens, fonts, utilities, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 import RechargeModal from './RechargeModal';
 import BillDetail from './BillDetail';
@@ -55,8 +55,8 @@ const ConnectionDetail = () => {
   }, [fetchConnection]);
 
   const util = useMemo(() => {
-    if (!connection) return utilColors.electricity;
-    return utilColors[connection.utility_tag] || utilColors.electricity;
+    if (!connection) return utilities.electricity;
+    return utilities[connection.utility_tag] || utilities.electricity;
   }, [connection]);
 
   const Icon = useMemo(() => {

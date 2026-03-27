@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilColors } from '../../theme';
+import { tokens, fonts, utilities } from '../../theme';
 import { ComplaintIcon, UsageIcon, ElectricityIcon } from '../../Icons';
 
 // ── Stat Card (same as ConsumerDashboard) ─────────────────────────────────────
@@ -47,7 +47,7 @@ const JobRow = ({ job, isDark, t, onNavigate }) => {
       onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
       onMouseLeave={e => e.currentTarget.style.opacity = '1'}
     >
-      <div style={{ width:34, height:34, borderRadius:10, background: utilColors.complaint.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 8px ${utilColors.complaint.glow}`, flexShrink:0 }}>
+      <div style={{ width:34, height:34, borderRadius:10, background: utilities.complaint.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 8px ${utilities.complaint.glow}`, flexShrink:0 }}>
         <ComplaintIcon size={16} color="#fff" />
       </div>
       <div style={{ flex:1, minWidth:0 }}>
@@ -68,7 +68,7 @@ const JobRow = ({ job, isDark, t, onNavigate }) => {
 // ── Connection Row ────────────────────────────────────────────────────────────
 const ConnectionRow = ({ conn, t, isDark }) => (
   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-    <div style={{ width:28, height:28, borderRadius:8, background: utilColors.electricity.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 6px ${utilColors.electricity.glow}`, flexShrink:0 }}>
+    <div style={{ width:28, height:28, borderRadius:8, background: utilities.electricity.gradient, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 2px 6px ${utilities.electricity.glow}`, flexShrink:0 }}>
       <ElectricityIcon size={13} color="#fff" />
     </div>
     <div style={{ flex:1 }}>
@@ -175,8 +175,8 @@ const FieldWorkerDashboard = () => {
           label="Pending Jobs"
           value={pendingJobs}
           sub="Awaiting action"
-          gradient={utilColors.complaint.gradient}
-          glow={utilColors.complaint.glow}
+          gradient={utilities.complaint.gradient}
+          glow={utilities.complaint.glow}
           Icon={ComplaintIcon}
           onClick={() => navigate('/field-worker/jobs')}
           t={t}
@@ -205,8 +205,8 @@ const FieldWorkerDashboard = () => {
           label="Connections in Region"
           value={connections.length}
           sub="Available for readings"
-          gradient={utilColors.electricity.gradient}
-          glow={utilColors.electricity.glow}
+          gradient={utilities.electricity.gradient}
+          glow={utilities.electricity.glow}
           Icon={ElectricityIcon}
           onClick={() => navigate('/field-worker/readings')}
           t={t}

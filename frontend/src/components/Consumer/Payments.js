@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, paymentMethods } from '../../theme';
-import { BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
 import BillDetail from './BillDetail';
 import AddMethodModal from './AddMethodModal';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
+const BankIcon    = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const PhoneIcon   = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>;
+const GoogleIcon  = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>;
 const TrashIcon   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const StarIcon    = ({ filled }) => <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const PlusIcon    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>;
@@ -16,17 +18,23 @@ const CheckIcon   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="
 const METHOD_TYPES = {
   bank: {
     label: 'Bank Transfer',
-    icon:  BankTransferIcon,
+    icon:  BankIcon,
+    grad:  'linear-gradient(135deg,#3B6FFF,#2952D9)',
+    glow:  'rgba(59,111,255,0.3)',
     providers: ['BRAC Bank','Dutch-Bangla Bank','City Bank','Islami Bank','Eastern Bank','Standard Chartered'],
   },
   mobile_banking: {
     label: 'Mobile Banking',
-    icon:  MobileBankingIcon,
+    icon:  PhoneIcon,
+    grad:  'linear-gradient(135deg,#E91E8C,#FF5C8A)',
+    glow:  'rgba(233,30,140,0.3)',
     providers: ['bKash','Nagad','Rocket','SureCash','Upay'],
   },
   google_pay: {
     label: 'Google Pay',
-    icon:  GooglePayIcon,
+    icon:  GoogleIcon,
+    grad:  'linear-gradient(135deg,#4285F4,#34A853)',
+    glow:  'rgba(66,133,244,0.3)',
     providers: [],
   },
 };
@@ -35,7 +43,7 @@ const METHOD_TYPES = {
 const methodSubtitle = (m) => {
   if (m.bank_name)            return `${m.bank_name} ···· ${m.account_num?.slice(-4)}`;
   if (m.provider_name)        return `${m.provider_name} · ${m.mb_phone}`;
-  if (m.email) return m.email;
+  if (m.google_account_email) return m.google_account_email;
   return '';
 };
 
@@ -44,16 +52,14 @@ const MethodCard = ({ method, onDelete, onSetDefault, t, isDark }) => {
   const cfg  = METHOD_TYPES[method.method_name] || METHOD_TYPES.bank;
   const Icon = cfg.icon;
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const grad = (paymentMethods[method.method_name] && paymentMethods[method.method_name].grad) || paymentMethods.bank.grad;
-  const glow = (paymentMethods[method.method_name] && paymentMethods[method.method_name].glow) || paymentMethods.bank.glow;
 
   return (
     <div style={{ background: t.bgCard, border: `1px solid ${method.is_default ? t.primary : t.border}`, borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden', transition: 'border-color 0.2s' }}>
       {/* Glow blob */}
-      <div style={{ position: 'absolute', top: -20, right: -20, width: 70, height: 70, borderRadius: '50%', background: grad, opacity: 0.08, filter: 'blur(16px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 70, height: 70, borderRadius: '50%', background: cfg.grad, opacity: 0.08, filter: 'blur(16px)', pointerEvents: 'none' }} />
 
       {/* Icon */}
-      <div style={{ width: 42, height: 42, borderRadius: 12, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${glow}`, flexShrink: 0, color: '#fff' }}>
+      <div style={{ width: 42, height: 42, borderRadius: 12, background: cfg.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${cfg.glow}`, flexShrink: 0, color: '#fff' }}>
         <Icon />
       </div>
 
@@ -108,6 +114,7 @@ const MethodCard = ({ method, onDelete, onSetDefault, t, isDark }) => {
 
 // AddMethodModal extracted to ./AddMethodModal
 
+
 // ── Payment History Row ───────────────────────────────────────────────────────
 const HistoryRow = ({ p, t, onOpenBill }) => {
   const cfg  = METHOD_TYPES[p.method_name] || METHOD_TYPES.bank;
@@ -150,6 +157,7 @@ const HistoryRow = ({ p, t, onOpenBill }) => {
     </button>
   );
 };
+
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const Payments = () => {
@@ -213,7 +221,7 @@ const Payments = () => {
       {/* Toast */}
       {toast && (
         <div style={{ position: 'fixed', top: 80, right: 24, zIndex: 300, padding: '12px 20px', borderRadius: 12, background: isDark ? '#0D2E1A' : '#DCFCE7', border: `1px solid ${isDark ? '#4ADE8033' : '#86EFAC'}`, color: isDark ? '#4ADE80' : '#16A34A', fontSize: 13, fontWeight: 500, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-          ✓ {toast}
+          <CheckIcon /> {toast}
         </div>
       )}
 
@@ -264,7 +272,7 @@ const Payments = () => {
       ) : tab === 'methods' ? (
         methods.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '52px 0', color: t.textMuted }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12, opacity:0.3 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
             <div style={{ fontSize: 14, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>No payment methods saved</div>
             <div style={{ fontSize: 13, marginBottom: 20 }}>Add a method to pay bills faster</div>
             <button onClick={() => setShowAdd(true)}

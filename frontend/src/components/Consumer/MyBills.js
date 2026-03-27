@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, use } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts, utilColors, statusColors } from '../../theme';
-import { ElectricityIcon, WaterIcon, GasIcon, BillIcon } from '../../Icons';
+import { tokens, fonts, utilities, statusColors } from '../../theme';
+import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, Check, FileText } from '../../Icons';
 import { DonutChart, ChartLegend } from '../Charts';
 import PayBillModal from './PayBillModal';
 import BillDetail from './BillDetail';
@@ -13,7 +13,7 @@ const BILL_TYPES = ['All', 'Prepaid', 'Postpaid'];
 
 // ── Bill Card ─────────────────────────────────────────────────────────────────
 const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
-  const util     = utilColors[bill.utility_tag] || utilColors.payment;
+  const util     = utilities[bill.utility_tag] || utilities.payment;
   const Icon     = UtilIcons[bill.utility_tag] || BillIcon;
   const status   = statusColors[bill.status]   || statusColors['Pending'];
   const isPayable= ['Pending','Overdue'].includes(bill.status);
@@ -109,14 +109,14 @@ const MyBills = () => {
   ].filter(s => s.value > 0).map(s => ({ ...s, pct: s.value / (bills.length||1) }));
 
   // Spending by utility
-  const utilitySpend = Object.values(utilColors).map(u => {
+  const utilitySpend = Object.values(utilities).map(u => {
     const total = bills.filter(b => b.utility_tag === u.tag).reduce((s,b) => s + parseFloat(b.amount||0), 0);
     const color = u.gradient.match(/#[A-Fa-f0-9]{6}/)?.[0] || '#3B6FFF';
     return { label: u.label, value: Math.round(total), color, pct: 0 };
   }).filter(u => u.value > 0).map(u => ({ ...u, pct: u.value / bills.reduce((s,b) => s + parseFloat(b.amount||0), 0.001) }));
 
   // Connections by utility (count of bills per utility)
-  const utilityCount = Object.values(utilColors).map(u => {
+  const utilityCount = Object.values(utilities).map(u => {
     const count = bills.filter(b => b.utility_tag === u.tag).length;
     const color = u.gradient.match(/#[A-Fa-f0-9]{6}/)?.[0] || '#3B6FFF';
     return { label: u.label, value: count, color, pct: 0 };
@@ -175,7 +175,7 @@ const MyBills = () => {
 
       {success && (
         <div style={{ padding:'13px 18px', borderRadius:12, marginBottom:20, background: isDark?'#0D2E1A':'#DCFCE7', border:`1px solid ${isDark?'#4ADE8033':'#86EFAC'}`, color: isDark?'#4ADE80':'#16A34A', fontSize:13, fontWeight:500 }}>
-          ✓ Payment successful! Bill updated.
+          <Check size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }} /> Payment successful! Bill updated.
         </div>
       )}
 
@@ -188,7 +188,7 @@ const MyBills = () => {
             <div style={{ fontSize:14, fontWeight:600, color:t.text, marginBottom:4 }}>Bill Status</div>
             <div style={{ fontSize:12, color:t.textSub, marginBottom:16 }}>Distribution of all bills</div>
             <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-              <DonutChart segments={statusSegments} size={130} thickness={28} label={bills.length} sublabel="total bills" t={t} />
+              <DonutChart segments={statusSegments} size={130} thickness={8} label={bills.length} sublabel="total bills" t={t} />
               <ChartLegend segments={statusSegments} t={t} />
             </div>
           </div>
@@ -198,7 +198,7 @@ const MyBills = () => {
             <div style={{ fontSize:14, fontWeight:600, color:t.text, marginBottom:4 }}>Spending by Utility</div>
             <div style={{ fontSize:12, color:t.textSub, marginBottom:16 }}>Total ৳ {Math.round(totalAmount).toLocaleString()}</div>
             <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-              <DonutChart segments={utilitySpend} size={130} thickness={28} label={`৳${Math.round(totalAmount/1000)}k`} sublabel="total spent" t={t} />
+              <DonutChart segments={utilitySpend} size={130} thickness={10} label={`৳${Math.round(totalAmount/1000)}k`} sublabel="total spent" t={t} />
               <ChartLegend segments={utilitySpend.map(u=>({...u, value:`৳${u.value.toLocaleString()}`}))} t={t} />
             </div>
           </div>
@@ -208,7 +208,7 @@ const MyBills = () => {
             <div style={{ fontSize:14, fontWeight:600, color:t.text, marginBottom:4 }}>Bills by Utility</div>
             <div style={{ fontSize:12, color:t.textSub, marginBottom:16 }}>Count of bills per service</div>
             <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-              <DonutChart segments={utilityCount} size={130} thickness={28} label={bills.length} sublabel="total bills" t={t} />
+              <DonutChart segments={utilityCount} size={130} thickness={10} label={bills.length} sublabel="total bills" t={t} />
               <ChartLegend segments={utilityCount} t={t} />
             </div>
           </div>
@@ -235,7 +235,7 @@ const MyBills = () => {
       <div style={{ display:'flex', gap:10, marginBottom:10, flexWrap:'wrap' }}>
         {[{ id: 'All', name: 'All' }, ...(connections || [])].map(tab => {
           const active = connectionFilter === tab.id;
-          const u = utilColors[tab.utility] || utilColors.payment;
+          const u = utilities[tab.utility] || utilities.payment;
           const Ic = UtilIcons[tab.utility] || BillIcon;
           return (
             <button key={tab.id} onClick={() => setConnectionFilter(tab.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', borderRadius:12, border:`1.5px solid ${active ? 'transparent' : t.border}`, background: active ? u.gradient : (isDark ? t.bgCard : '#fff'), cursor:'pointer', transition:'all 0.2s', boxShadow: active ? `0 4px 14px ${u.glow}` : 'none' }}>
@@ -249,7 +249,7 @@ const MyBills = () => {
       {/* Type tabs (Prepaid / Postpaid) */}
       <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
         {BILL_TYPES.map(bt => (
-          <button key={bt} onClick={() => setTypeFilter(bt)} style={{ padding:'6px 14px', borderRadius:100, border:`1.5px solid ${typeFilter===bt ? t.primary : t.border}`, background: typeFilter===bt ? (isDark?'rgba(59,111,255,0.12)':'#F3F7FF') : 'transparent', color: typeFilter===bt ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
+          <button key={bt} onClick={() => setTypeFilter(bt)} style={{ padding:'6px 14px', borderRadius:100, border:`1.5px solid ${typeFilter===bt ? t.primary : t.border}`, background: typeFilter===bt ? 'rgba(204,255,0,0.08)' : 'transparent', color: typeFilter===bt ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
             {bt}
           </button>
         ))}
@@ -258,7 +258,7 @@ const MyBills = () => {
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
         {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding:'7px 16px', borderRadius:100, border:`1.5px solid ${filter===f ? t.primary : t.border}`, background: filter===f ? (isDark?'rgba(59,111,255,0.15)':'#EEF2FF') : 'transparent', color: filter===f ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
+          <button key={f} onClick={() => setFilter(f)} style={{ padding:'7px 16px', borderRadius:100, border:`1.5px solid ${filter===f ? t.primary : t.border}`, background: filter===f ? 'rgba(204,255,0,0.08)' : 'transparent', color: filter===f ? t.primary : t.textSub, fontSize:13, fontWeight:500, fontFamily:fonts.ui, cursor:'pointer', transition:'all 0.15s' }}>
             {f} {f !== 'All' && <span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>{bills.filter(b=> (connectionFilter==='All' || ((b.connection_id ?? b.connection_name) === connectionFilter)) && (typeFilter==='All' || (b.bill_type && b.bill_type.toLowerCase()===typeFilter.toLowerCase())) && b.status===f).length}</span>}
           </button>
         ))}
@@ -272,7 +272,7 @@ const MyBills = () => {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:'center', padding:'56px 0', color:t.textMuted }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:12, opacity:0.3 }}><FileText size={40} /></div>
           <div style={{ fontSize:14, fontWeight:500, color:t.textSub, marginBottom:6 }}>No {filter !== 'All' ? filter.toLowerCase() : ''} bills</div>
           <div style={{ fontSize:13 }}>Bills appear here once generated by the system</div>
         </div>

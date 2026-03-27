@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fonts, utilColors, paymentMethods } from '../../theme';
+import { fonts, utilities, paymentMethods } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
 import AddMethodModal from './AddMethodModal';
 
@@ -76,7 +76,7 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
     }
   };
 
-  const util = utilColors[bill.utility_tag] || utilColors.payment;
+  const util = utilities[bill.utility_tag] || utilities.payment;
   const Icon = UtilIcons[bill.utility_tag] || BillIcon;
 
   return (

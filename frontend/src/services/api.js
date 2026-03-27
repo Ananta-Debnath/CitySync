@@ -26,7 +26,7 @@ api.interceptors.request.use(
 );
 
 // ── Regions ────────────────────────────────────────────────────────
-export const getRegions    = ()         => api.get('/public/regions');
+export const getRegions    = ()         => api.get('/admin/regions');
 export const createRegion  = (data)     => api.post('/admin/regions', data);
 export const updateRegion  = (id, data) => api.put(`/admin/regions/${id}`, data);
 export const deleteRegion  = (id)       => api.delete(`/admin/regions/${id}`);
@@ -92,6 +92,17 @@ export const getMyJobs              = ()         => api.get('/fieldworker/jobs')
 export const updateJobStatus        = (id, data) => api.put(`/fieldworker/jobs/${id}/status`, data); // FIXED: was pointing to wrong /admin/complaints endpoint
 export const getConnectionsForReading = ()       => api.get('/fieldworker/connections');
 export const submitMeterReading     = (data)     => api.post('/fieldworker/readings', data);
+
+// ── Consumer (Shared/Dedicated) ───────────────────────────────────
+export const getConsumerProfile     = () => api.get('/consumer/profile');
+export const getConsumerConnections = () => api.get('/consumer/connections');
+export const getConsumerBills       = (limit) => api.get('/consumer/bills', { params: { limit } });
+export const getConsumerUsage       = () => api.get('/consumer/usage');
+export const getConsumerComplaints   = () => api.get('/consumer/complaints');
+export const createComplaint        = (data) => api.post('/consumer/complaints', data);
+export const getPaymentMethods      = () => api.get('/consumer/payment-methods');
+export const getPaymentHistory      = () => api.get('/consumer/payment-history');
+export const getApplicationsConsumer = () => api.get('/consumer/applications');
 
 // ── Auth ───────────────────────────────────────────────────────────
 export const login    = (credentials) => api.post('/auth/login', credentials);

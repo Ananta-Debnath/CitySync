@@ -6,21 +6,25 @@ import { ThemeProvider } from './components/Layout';
 import { Layout } from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
+//import TailwindTest from './TailwindTest';
+
 // Auth
 import Login    from './components/Auth/Login';
 import Register from './components/Auth/Register';
 
 // Consumer pages
-import ConsumerDashboard       from './components/Consumer/ConsumerDashboard';
-import MyBills                 from './components/Consumer/MyBills';
-import BillDetail              from './components/Consumer/BillDetail';
-import UsageHistory            from './components/Consumer/UsageHistory';
+import ConsumerDashboard from './components/Consumer/ConsumerDashboard';
+import MyBills           from './components/Consumer/MyBills';
+import BillDetail        from './components/Consumer/BillDetail';
+import UsageHistory      from './components/Consumer/UsageHistory';
 import Complaints              from './components/Consumer/Complaints';
 import ConnectionApplications  from './components/Consumer/ConnectionApplications';
 import MyConnections           from './components/Consumer/Myconnections';
 import ConnectionDetail        from './components/Consumer/ConnectionDetail';
 import Payments                from './components/Consumer/Payments';
 import Profile                 from './components/Profile';
+import Notifications           from './components/Consumer/Notifications';
+import LandingPage             from './components/LandingPage/LandingPage';
 
 // Employee pages
 import RegionList from './components/Regions/RegionList';
@@ -34,6 +38,9 @@ import ComplaintsManager from './components/Employee/ComplaintsManager';
 import FieldWorkersList from './components/Employee/FieldWorkersList';
 import TariffsManager from './components/Employee/TariffsManager';
 import BillingManager from './components/Employee/BillingManager';
+import RevenueAnalytics    from './components/Employee/Analytics/RevenueAnalytics';
+import ProductivityDashboard from './components/Employee/Analytics/ProductivityDashboard';
+import RegionalHeatmap     from './components/Employee/Analytics/RegionalHeatmap';
 
 // Field Worker pages
 import MyJobs from './components/FieldWorker/MyJobs';
@@ -51,6 +58,12 @@ const RootRedirect = () => {
   return <Navigate to={home[user?.role] || '/login'} replace />;
 };
 
+
+
+// function App() {
+//   return <TailwindTest />;
+// }
+
 function App() {
   return (
     <AuthProvider>
@@ -61,7 +74,7 @@ function App() {
             {/* Public */}
             <Route path="/login"    element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/"         element={<RootRedirect />} />
+            <Route path="/"         element={<LandingPage />} />
 
             {/* ── Consumer ── */}
             <Route path="/consumer/*" element={
@@ -78,6 +91,7 @@ function App() {
                     <Route path="applications" element={<ConnectionApplications />} />
                     <Route path="payments"     element={<Payments />} />
                     <Route path="profile"      element={<Profile />} />
+                    <Route path="notifications" element={<Notifications />} />
                     {/* TODO: payments */}
                     <Route path="*" element={<Navigate to="/consumer/dashboard" replace />} />
                   </Routes>
@@ -116,6 +130,10 @@ function App() {
                     <Route path="field-workers"    element={<FieldWorkersList />} />
                     <Route path="tariffs"          element={<TariffsManager />} />
                     <Route path="billing"          element={<BillingManager />} />
+                    <Route path="analytics"        element={<Navigate to="/employee/analytics/revenue" replace />} />
+                    <Route path="analytics/revenue"      element={<RevenueAnalytics />} />
+                    <Route path="analytics/productivity" element={<ProductivityDashboard />} />
+                    <Route path="analytics/regions"      element={<RegionalHeatmap />} />
                     <Route path="*" element={<Navigate to="/employee/dashboard" replace />} />
                   </Routes>
                 </Layout>

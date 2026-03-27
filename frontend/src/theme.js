@@ -1,54 +1,44 @@
 // ─── CitySync Design Tokens ───────────────────────────────────────────────────
-// Usage: import { tokens, utilColors, statusColors, fonts, navItems } from '../theme';
+// Usage: import { tokens, utilities, statusColors, fonts, navItems } from '../theme';
 
 export const fonts = {
-  display: "'Syne', sans-serif",
+  display: "'Barlow Condensed', sans-serif",
   ui:      "'Outfit', sans-serif",
-  mono:    "'JetBrains Mono', monospace",
+  mono:    "'IBM Plex Mono', monospace",
+  rajdhani: "'Rajdhani', sans-serif",
+  jetbrains: "'JetBrains Mono', monospace",
+  dm:      "'DM Sans', sans-serif",
 };
 
-export const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Syne:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');`;
+export const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@300;400;500&family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');`;
 
 export const tokens = {
-  light: {
-    bg:           '#F5F6FA',
-    bgCard:       '#FFFFFF',
-    bgHover:      '#F0F4FF',
-    sidebar:      '#0B0F1C',
-    sidebarHover: '#151C30',
-    sidebarActive:'#1E2840',
-    border:       '#E4E8F0',
-    text:         '#0D1B2A',
-    textSub:      '#5A6A7A',
-    textMuted:    '#94A3B8',
-    primary:      '#3B6FFF',
-    primaryHover: '#2952D9',
-    success:      '#22C55E',
-    warning:      '#F5A623',
-    danger:       '#EF4444',
-    overlay:      'rgba(0,0,0,0.4)',
-  },
   dark: {
-    bg:           '#080C18',
-    bgCard:       '#0F1628',
-    bgHover:      '#1A2235',
-    sidebar:      '#060914',
-    sidebarHover: '#0D1425',
-    sidebarActive:'#132040',
-    border:       '#1A2235',
-    text:         '#EEF2FF',
-    textSub:      '#7A8BA0',
-    textMuted:    '#3D4F66',
-    primary:      '#4D7DFF',
-    primaryHover: '#6B95FF',
-    success:      '#22C55E',
-    warning:      '#F5A623',
-    danger:       '#EF4444',
-    overlay:      'rgba(0,0,0,0.65)',
+    bg:           '#0E0E0E',
+    bgCard:       '#151515',
+    bgHover:      '#1A1A1A',
+    sidebar:      '#0A0A0A',
+    sidebarHover: '#121212',
+    sidebarActive:'#181818',
+    border:       'rgba(255,255,255,0.06)',
+    text:         '#E8E8E8',
+    textSub:      'rgba(232,232,232,0.46)',
+    textMuted:    'rgba(232,232,232,0.22)',
+    primary:      '#CCFF00', // Lime
+    primaryHover: '#B8E600',
+    success:      '#CCFF00',
+    warning:      '#FF9900',
+    danger:       '#FF3B30',
+    overlay:      'rgba(6,6,6,0.76)',
+    lime:         '#CCFF00',
+    orange:       '#FF9900',
+    cyan:         '#00D4FF',
   },
 };
+// Alias dark as light so any remaining light refs don't break immediately
+tokens.light = tokens.dark;
 
-export const utilColors = {
+export const utilities = {
   electricity: { label: 'Electricity', gradient: 'linear-gradient(135deg,#F5A623,#FF5733)', glow: 'rgba(245,166,35,0.35)',  tag: 'electricity' },
   water:       { label: 'Water',       gradient: 'linear-gradient(135deg,#00C4FF,#0057B8)', glow: 'rgba(0,180,255,0.3)',   tag: 'water'       },
   gas:         { label: 'Gas',         gradient: 'linear-gradient(135deg,#FF4E6A,#C2003F)', glow: 'rgba(255,78,106,0.3)', tag: 'gas'         },
@@ -56,7 +46,6 @@ export const utilColors = {
   complaint:   { label: 'Complaints',  gradient: 'linear-gradient(135deg,#FF9A3C,#FFD93D)', glow: 'rgba(255,154,60,0.3)', tag: 'complaint'   },
 };
 
-// Gradients and glows for payment methods
 export const paymentMethods = {
   bank:           { grad: 'linear-gradient(135deg,#3B6FFF,#2952D9)', glow: 'rgba(59,111,255,0.25)' },
   mobile_banking: { grad: 'linear-gradient(135deg,#E91E8C,#FF5C8A)', glow: 'rgba(233,30,140,0.25)' },
@@ -67,14 +56,16 @@ export const statusColors = {
   Active:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Pending:      { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
   Resolved:     { lb:'#DBEAFE', lc:'#1D4ED8', db:'#0C1F45', dc:'#60A5FA' },
-  Paid:         { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Overdue:      { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
   Assigned:     { lb:'#F3E8FF', lc:'#7E22CE', db:'#200D38', dc:'#C084FC' },
   Disconnected: { lb:'#F1F5F9', lc:'#475569', db:'#111827', dc:'#64748B' },
+  Inactive:     { lb:'#E2E8F0', lc:'#64748B', db:'#0F172A', dc:'#94A3B8' },
   Connected:    { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Suspended:    { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
-  Inactive:     { lb:'#FEF9C3', lc:'#B45309', db:'#2D1F07', dc:'#FBBF24' },
   'In Progress':{ lb:'#EEF2FF', lc:'#4338CA', db:'#1E1B4B', dc:'#818CF8' },
+  'Under Review': { lb:'#EEF2FF', lc:'#4338CA', db:'#1E1B4B', dc:'#818CF8' },
+  Approved:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
+  Rejected:       { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
 };
 
 export const radii = { sm:8, md:10, lg:12, xl:16, '2xl':20, full:9999 };
@@ -196,7 +187,6 @@ export const navItems = {
     { label:'Dashboard',    path:'/consumer/dashboard',     icon:'home'       },
     { label:'Connections',  path:'/consumer/connections',   icon:'connection' },
     { label:'My Bills',     path:'/consumer/bills',         icon:'bill'       },
-    { label:'Payments',     path:'/consumer/payments',      icon:'payment'    },
     { label:'Usage',        path:'/consumer/usage',         icon:'usage'      },
     { label:'Applications', path:'/consumer/applications',  icon:'application' },
     { label:'Complaints',   path:'/consumer/complaints',    icon:'complaint'  },

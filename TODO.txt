@@ -68,6 +68,12 @@ Profile pic
 
 
 -------------------EMPLOYEE------------------
+UNAVAILABLE PAGES
+reading
+Operations
+Profile
+
+
 
 active conn count
 some kind of graph
@@ -76,6 +82,9 @@ approve readings
 
 ---Connection---
 Show details
+
+---Region---
+Stylize
 
 ---Tariff---
 No edit on existing tariff, only new creations (fixed_charges can stay) no deletion either
