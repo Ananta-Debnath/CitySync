@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities, statusColors } from '../../theme';
 import { ComplaintIcon, ElectricityIcon, WaterIcon, GasIcon, CheckCircle } from '../../Icons';
+import { createComplaint, getConsumerComplaints, getConsumerConnections } from '../../services/api';
 
 const UtilIcons = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 
 // ── File Complaint Modal ───────────────────────────────────────────────────────
 const FileModal = ({ connections, onClose, onSuccess, t, isDark }) => {
-  const { authFetch } = useAuth();
   const [connId, setConnId] = useState('');
   const [desc, setDesc] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,15 +18,10 @@ const FileModal = ({ connections, onClose, onSuccess, t, isDark }) => {
     if (!desc.trim()) { setError('Please describe your complaint'); return; }
     setLoading(true); setError('');
     try {
-      const res = await authFetch('/api/consumer/complaints', {
-        method: 'POST',
-        body: JSON.stringify({ connection_id: connId || null, description: desc }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await createComplaint({ connection_id: connId || null, description: desc });
       onSuccess();
     } catch (err) {
-      setError(err.message || 'Submission failed');
+      setError(err.response?.data?.error || err.message || 'Submission failed');
     } finally {
       setLoading(false);
     }
@@ -170,7 +164,6 @@ const ComplaintCard = ({ complaint, t, isDark }) => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const Complaints = () => {
-  const { authFetch } = useAuth();
   const { isDark } = useTheme();
   const t = tokens[isDark ? 'dark' : 'light'];
 
@@ -193,14 +186,9 @@ const Complaints = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cRes, conRes] = await Promise.all([
-        authFetch('/api/consumer/complaints'),
-        authFetch('/api/consumer/connections'),
-      ]);
-      const cData = await cRes.json();
-      const conData = await conRes.json();
-      if (!cRes.ok) throw new Error(cData.error);
-      if (!conRes.ok) throw new Error(conData.error);
+      const [cRes, conRes] = await Promise.all([getConsumerComplaints(), getConsumerConnections()]);
+      const cData = cRes.data;
+      const conData = conRes.data;
       setComplaints(cData);
       setConnections(conData);
     } catch (err) {
@@ -208,7 +196,7 @@ const Complaints = () => {
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

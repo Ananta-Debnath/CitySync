@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { getConsumerConnections, getConsumerUsage } from '../../services/api';
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -394,7 +394,6 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
 
 // ── Main component ────────────────────────────────────────────────────────────
 const UsageHistory = () => {
-  const { authFetch } = useAuth();
   const [loading, setLoading] = useState(true);
   const [connections, setConnections] = useState([]);
   const [usageData, setUsageData] = useState([]);
@@ -409,9 +408,8 @@ const UsageHistory = () => {
     }
     try {
       setLoading(true);
-      const res  = await authFetch(`/api/consumer/usage?granularity=month&connection_id=${encodeURIComponent(connectionId)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch usage data');
+      const res = await getConsumerUsage({ granularity: 'month', connection_id: connectionId });
+      const data = res.data;
       setUsageData(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch usage data:', err);
@@ -419,15 +417,14 @@ const UsageHistory = () => {
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => {
     const fetchConnections = async () => {
       try {
         setLoading(true);
-        const res = await authFetch('/api/consumer/connections');
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to fetch connections');
+        const res = await getConsumerConnections();
+        const data = res.data;
 
         const normalized = Array.isArray(data)
           ? data.map(c => ({
@@ -450,7 +447,7 @@ const UsageHistory = () => {
       }
     };
     fetchConnections();
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => {
     if (selectedConnection) fetchUsageData(selectedConnection);

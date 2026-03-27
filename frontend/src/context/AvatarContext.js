@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { getMyProfile } from '../services/api';
 
 const AvatarContext = createContext(null);
 
@@ -11,7 +12,8 @@ export const AvatarProvider = ({ children }) => {
   const loadAvatar = useCallback(async () => {
     if (!isAuthenticated) { setAvatar(null); return; }
     try {
-      const res  = await authFetch('/api/consumer/profile');
+      // const res  = await authFetch('/api/consumer/profile');
+      const res = await getMyProfile();
       if (!res.ok) return;
       const data = await res.json();
       setAvatar(data.avatar_url || null);

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { fonts, utilities, paymentMethods } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
 import AddMethodModal from './AddMethodModal';
+import { getPaymentMethods, makeConsumerPayment } from '../../services/api';
 
 const UtilIcons = {
   electricity: ElectricityIcon,
@@ -24,7 +24,6 @@ const methodSub = (m) => {
 };
 
 const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
-  const { authFetch } = useAuth();
   const [methods, setMethods] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loadingMethods, setLoadingMethods] = useState(true);
@@ -34,9 +33,9 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
 
   const fetchMethods = () => {
     setLoadingMethods(true);
-    return authFetch('/api/consumer/payment-methods')
-      .then((r) => r.json())
-      .then((data) => {
+    return getPaymentMethods()
+      .then((r) => {
+        const data = r.data;
         const list = Array.isArray(data) ? data : [];
         setMethods(list);
         const def = list.find((m) => m.is_default) || list[0];
@@ -46,7 +45,7 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
       .finally(() => setLoadingMethods(false));
   };
 
-  useEffect(() => { fetchMethods(); }, [authFetch]);
+  useEffect(() => { fetchMethods(); }, []);
 
   const handlePay = async () => {
     if (!selectedId) {
@@ -58,19 +57,14 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
     setError('');
 
     try {
-      const res = await authFetch('/api/consumer/pay', {
-        method: 'POST',
-        body: JSON.stringify({
-          bill_document_id: bill.bill_document_id,
-          payment_amount: bill.amount,
-          method_id: selectedId,
-        }),
+      await makeConsumerPayment({
+        bill_document_id: bill.bill_document_id,
+        payment_amount: bill.amount,
+        method_id: selectedId,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       onSuccess();
     } catch (err) {
-      setError(err.message || 'Payment failed');
+      setError(err.response?.data?.error || err.message || 'Payment failed');
     } finally {
       setLoading(false);
     }
@@ -331,7 +325,6 @@ const PayBillModal = ({ bill, onClose, onSuccess, t, isDark }) => {
           onAdded={() => { fetchMethods(); }}
           t={t}
           isDark={isDark}
-          authFetch={authFetch}
         />
       )}
       </div>

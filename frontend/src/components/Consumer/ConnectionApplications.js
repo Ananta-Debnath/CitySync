@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import NewApplicationModal from './NewApplicationModal';
 import { X, Check, Inbox } from '../../Icons';
+import { getApplicationsConsumer } from '../../services/api';
 
 const STEPS = ['Pending', 'Review', 'Approved', 'Ready'];
 const stepIndex = (status) => {
@@ -110,7 +110,6 @@ const AppCard = ({ app }) => {
 };
 
 const ConnectionApplications = () => {
-  const { authFetch } = useAuth();
   const [apps, setApps]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState('All');
@@ -120,13 +119,11 @@ const ConnectionApplications = () => {
   const fetchApps = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await authFetch('/api/consumer/applications');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
-      setApps(data);
+      const res = await getApplicationsConsumer();
+      setApps(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchApps(); }, [fetchApps]);
 

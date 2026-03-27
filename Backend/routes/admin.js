@@ -11,7 +11,6 @@ router.use(roleMiddleware(['employee']));
 router.get('/tables', adminController.getTables);
 
 // Regions
-router.get('/regions', adminController.getRegions);
 router.post('/regions', adminController.createRegion);
 router.put('/regions/:id', adminController.updateRegion);
 router.delete('/regions/:id', adminController.deleteRegion);

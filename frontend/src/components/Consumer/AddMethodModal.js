@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fonts } from '../../theme';
 import { BankTransferIcon, MobileBankingIcon, GooglePayIcon } from '../../Icons';
+import { getPublicBanks, getPublicMobileBankingProviders, addPaymentMethod as addConsumerPaymentMethod } from '../../services/api';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -52,16 +53,13 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch}) => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [bRes, pRes] = await Promise.all([
-        authFetch('/api/public/banks'),
-        authFetch('/api/public/mobile-banking-providers'),
-      ]);
-      const [bData, pData] = await Promise.all([bRes.json(), pRes.json()]);
+      const [bRes, pRes] = await Promise.all([getPublicBanks(), getPublicMobileBankingProviders()]);
+      const [bData, pData] = [bRes.data, pRes.data];
       setBankProviders(Array.isArray(bData) ? bData : []);
       setMobileProviders(Array.isArray(pData) ? pData : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
 	useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -69,12 +67,10 @@ const AddMethodModal = ({ onClose, onAdded, t, isDark, authFetch}) => {
     setLoading(true); setError('');
     try {
       const body = { method_name: type, set_default: setDefault, ...form };
-      const res  = await authFetch('/api/consumer/payment-methods', { method: 'POST', body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add');
+      await addConsumerPaymentMethod(body);
       setDone(true);
       setTimeout(() => { onAdded(); onClose(); }, 1500);
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(err.response?.data?.error || err.message || 'Failed to add'); }
     finally       { setLoading(false); }
   };
 

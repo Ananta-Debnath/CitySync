@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
 import RechargeModal from './RechargeModal';
 import BillDetail from './BillDetail';
+import { getConsumerConnectionById } from '../../services/api';
 
 const UTIL_ICONS = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 
@@ -23,7 +23,6 @@ const formatDate = (d) => {
 
 const ConnectionDetail = () => {
   const { id } = useParams();
-  const { authFetch } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const t = tokens[isDark ? 'dark' : 'light'];
@@ -39,16 +38,14 @@ const ConnectionDetail = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await authFetch(`/api/consumer/connections/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch connection');
-      setConnection(data);
+      const res = await getConsumerConnectionById(id);
+      setConnection(res.data);
     } catch (err) {
-      setError(err.message || 'Failed to fetch connection');
+      setError(err.response?.data?.error || err.message || 'Failed to fetch connection');
     } finally {
       setLoading(false);
     }
-  }, [authFetch, id]);
+  }, [id]);
 
   useEffect(() => {
     fetchConnection();

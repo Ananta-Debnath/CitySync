@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, statusColors } from '../../theme';
 import { ConnectionIcon, Plus, Zap, Flame, Droplets } from '../../Icons';
+import { getConsumerConnections } from '../../services/api';
 
 const UTIL_CONFIG = {
   electricity: { Icon: Zap,      color: '#CCFF00', gradient: 'linear-gradient(135deg,#CCFF00,#99CC00)', glow: 'rgba(204,255,0,0.25)'  },
@@ -109,7 +109,6 @@ const ConnectionCard = ({ conn, t, isDark, onOpen }) => {
 const FILTERS = ['All', 'Connected', 'Active', 'Suspended', 'Disconnected', 'Pending'];
 
 const MyConnections = () => {
-  const { authFetch }  = useAuth();
   const { isDark }     = useTheme();
   const navigate       = useNavigate();
   const t = tokens[isDark ? 'dark' : 'light'];
@@ -121,13 +120,11 @@ const MyConnections = () => {
   const fetchConnections = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await authFetch('/api/consumer/connections');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setConnections(data);
+      const res = await getConsumerConnections();
+      setConnections(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchConnections(); }, [fetchConnections]);
 

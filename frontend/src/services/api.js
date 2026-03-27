@@ -26,7 +26,7 @@ api.interceptors.request.use(
 );
 
 // ── Regions ────────────────────────────────────────────────────────
-export const getRegions    = ()         => api.get('/admin/regions');
+// export const getRegions    = ()         => api.get('/admin/regions');
 export const createRegion  = (data)     => api.post('/admin/regions', data);
 export const updateRegion  = (id, data) => api.put(`/admin/regions/${id}`, data);
 export const deleteRegion  = (id)       => api.delete(`/admin/regions/${id}`);
@@ -88,21 +88,68 @@ export const getEmployees   = () => api.get('/admin/employees');
 export const getFieldWorkers = () => api.get('/admin/field-workers');
 
 // ── Field Worker ───────────────────────────────────────────────────
-export const getMyJobs              = ()         => api.get('/fieldworker/jobs');
-export const updateJobStatus        = (id, data) => api.put(`/fieldworker/jobs/${id}/status`, data); // FIXED: was pointing to wrong /admin/complaints endpoint
+export const getMyJobs                = ()         => api.get('/fieldworker/jobs');
+export const updateJobStatus          = (id, data) => api.put(`/fieldworker/jobs/${id}/status`, data); // FIXED: was pointing to wrong /admin/complaints endpoint
 export const getConnectionsForReading = ()       => api.get('/fieldworker/connections');
-export const submitMeterReading     = (data)     => api.post('/fieldworker/readings', data);
+export const submitMeterReading       = (data)     => api.post('/fieldworker/readings', data);
+
+// ── Fieldworker Profile ───────────────────────────────────────────
+export const getFieldworkerProfile = () => api.get('/fieldworker/profile');
+export const updateFieldworkerProfile = (data) => api.put('/fieldworker/profile', data);
+export const updateFieldworkerAvatar = (data) => api.put('/fieldworker/avatar', data);
+export const deleteFieldworkerAvatar = () => api.delete('/fieldworker/avatar');
+export const changeFieldworkerPassword = (data) => api.put('/fieldworker/password', data);
+
+// ── Public (no auth) ──────────────────────────────────────────────
+export const getPublicTestDb = () => api.get('/public/test-db');
+export const getRegions = () => api.get('/public/regions');
+export const getPublicBanks = () => api.get('/public/banks');
+export const getPublicUtilityNames = (reg_id) => api.get(`/public/utility-names/${reg_id}`);
+export const getPublicMobileBankingProviders = () => api.get('/public/mobile-banking-providers');
+
+// ── Profile (generic) ─────────────────────────────────────────────
+export const getMyProfile = () => api.get('/profile/me');
+
+// ── Notifications ─────────────────────────────────────────────────
+export const getNotifications = () => api.get('/notifications');
+export const markNotificationsRead = () => api.post('/notifications/mark-read');
+
+// ── AI ────────────────────────────────────────────────────────────
+export const callAiConsumer = (data) => api.post('/ai/consumer', data);
+export const callAiEmployee = (data) => api.post('/ai/employee', data);
+
+// ── Admin profile & generic table ──────────────────────────────────
+export const getAdminProfile = () => api.get('/admin/profile');
+export const updateAdminProfile = (data) => api.put('/admin/profile', data);
+export const updateAdminAvatar = (data) => api.put('/admin/avatar', data);
+export const deleteAdminAvatar = () => api.delete('/admin/avatar');
+export const adminChangePassword = (data) => api.put('/admin/password', data);
+export const getTableData = (tableName) => api.get(`/admin/table/${tableName}`);
+export const deleteTableRow = (tableName, id) => api.delete(`/admin/table/${tableName}/${id}`);
 
 // ── Consumer (Shared/Dedicated) ───────────────────────────────────
-export const getConsumerProfile     = () => api.get('/consumer/profile');
-export const getConsumerConnections = () => api.get('/consumer/connections');
-export const getConsumerBills       = (limit) => api.get('/consumer/bills', { params: { limit } });
-export const getConsumerUsage       = () => api.get('/consumer/usage');
-export const getConsumerComplaints   = () => api.get('/consumer/complaints');
-export const createComplaint        = (data) => api.post('/consumer/complaints', data);
-export const getPaymentMethods      = () => api.get('/consumer/payment-methods');
-export const getPaymentHistory      = () => api.get('/consumer/payment-history');
-export const getApplicationsConsumer = () => api.get('/consumer/applications');
+export const getConsumerProfile        = () => api.get('/consumer/profile');
+export const updateConsumerProfile     = (data) => api.put('/consumer/profile', data);
+export const getConsumerConnections    = () => api.get('/consumer/connections');
+export const getConsumerConnectionById = (id) => api.get(`/consumer/connections/${id}`);
+export const getConsumerBills          = (limit) => api.get('/consumer/bills', { params: { limit } });
+export const getConsumerBillById       = (id) => api.get(`/consumer/bills/${id}`);
+export const getConsumerUsage          = (params) => api.get('/consumer/usage', { params });
+export const makeConsumerPayment       = (data) => api.post('/consumer/pay', data);
+export const getConsumerComplaints     = () => api.get('/consumer/complaints');
+export const createComplaint           = (data) => api.post('/consumer/complaints', data);
+export const getApplicationsConsumer   = () => api.get('/consumer/applications');
+export const submitConsumerApplication = (data) => api.post('/consumer/applications', data);
+export const updateConsumerAvatar      = (data) => api.put('/consumer/avatar', data);
+export const deleteConsumerAvatar      = () => api.delete('/consumer/avatar');
+export const changeConsumerPassword    = (data) => api.put('/consumer/password', data);
+export const deactivateConsumerAccount = (data) => api.put('/consumer/deactivate', data);
+export const getPaymentMethods         = () => api.get('/consumer/payment-methods');
+export const addPaymentMethod          = (data) => api.post('/consumer/payment-methods', data);
+export const setDefaultPaymentMethod   = (id) => api.put(`/consumer/payment-methods/${id}/default`);
+export const deletePaymentMethod       = (id) => api.delete(`/consumer/payment-methods/${id}`);
+export const getPaymentHistory         = () => api.get('/consumer/payment-history');
+export const createRechargeBill        = (data) => api.post('/consumer/recharge', data);
 
 // ── Auth ───────────────────────────────────────────────────────────
 export const login    = (credentials) => api.post('/auth/login', credentials);

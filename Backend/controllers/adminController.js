@@ -48,15 +48,6 @@ const getTables = async (req, res) => {
   }
 };
 
-const getRegions = async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM region ORDER BY region_id');
-    res.json({ count: result.rows.length, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-};
-
 const createRegion = async (req, res) => {
   const { region_name, postal_code } = req.body;
   if (!region_name || !postal_code) {
@@ -956,7 +947,6 @@ const updatePassword = async (req, res) => {
 
 module.exports = {
   getTables,
-  getRegions,
   createRegion,
   updateRegion,
   deleteRegion,

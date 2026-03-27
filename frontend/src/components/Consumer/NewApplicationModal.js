@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { X, Zap, Droplets, Flame } from '../../Icons';
 import Select from 'react-select';
-import { useAuth } from '../../context/AuthContext';
+import { submitConsumerApplication, getRegions, getMyProfile, getPublicUtilityNames } from '../../services/api';
 
 const NewApplicationModal = ({ onClose, onSuccess }) => {
-  const { authFetch } = useAuth();
   const [form, setForm] = useState({ requested_connection_type: 'Residential', region_id: '', address: '', utility_id: '', priority: 'Normal' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,14 +30,10 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
     if (!form.utility_id) { setError('Utility is required'); return; }
     setLoading(true); setError('');
     try {
-      const res = await authFetch('/api/consumer/applications', { method: 'POST', body: JSON.stringify(form) });
-      if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error);
-      }
+      await submitConsumerApplication(form);
       onSuccess();
     } catch (err) {
-      setError(err.message || 'Failed to submit application');
+      setError(err.response?.data?.error || err.message || 'Failed to submit application');
     } finally {
       setLoading(false);
     }
@@ -47,28 +42,24 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [regRes, meRes] = await Promise.all([
-        authFetch(`/api/public/regions`),
-        authFetch(`/api/consumer/profile`), // Updated to match /profile endpoint
-      ]);
-      const regData = await regRes.json();
-      const meData = await meRes.json();
-      setRegions(regData);
+      const [regRes, meRes] = await Promise.all([getRegions(), getMyProfile()]);
+      const regData = regRes.data;
+      const meData = meRes.data;
+      setRegions(regData.data || []);
       setMyRegion(meData.region_id);
       setMyAddress(meData.house_num + ', ' + meData.street_name + (meData.landmark ? `, ${meData.landmark}` : ''));
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   const fetchUtilities = useCallback(async (reg_id) => {
     setLoading(true);
     try {
-      const res  = await authFetch(`/api/public/utility-names/${reg_id}`);
-      const data = await res.json();
-      setUtilitiesList(data);
+      const res = await getPublicUtilityNames(reg_id);
+      setUtilitiesList(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

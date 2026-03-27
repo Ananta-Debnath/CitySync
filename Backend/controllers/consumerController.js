@@ -451,13 +451,13 @@ const getProfile = async (req, res) => {
         (SELECT COUNT(*) FROM utility_connection uc WHERE uc.consumer_id = p.person_id)               AS total_connections,
         (SELECT COUNT(*) FROM utility_connection uc
           JOIN bill_document bd ON bd.connection_id = uc.connection_id
-          WHERE uc.consumer_id = p.person_id)                                                          AS total_bills,
+          WHERE uc.consumer_id = p.person_id AND bd.bill_status NOT ILIKE 'CANCELLED')                                                          AS total_bills,
         (SELECT COALESCE(SUM(bd.total_amount),0) FROM utility_connection uc
           JOIN bill_document bd ON bd.connection_id = uc.connection_id
           WHERE uc.consumer_id = p.person_id AND bd.bill_status = 'PAID')                              AS total_paid,
         (SELECT COALESCE(SUM(bd.total_amount),0) FROM utility_connection uc
           JOIN bill_document bd ON bd.connection_id = uc.connection_id
-          WHERE uc.consumer_id = p.person_id AND bd.bill_status = 'UNPAID')                            AS total_outstanding,
+          WHERE uc.consumer_id = p.person_id AND bd.bill_status ILIKE 'UNPAID')                        AS total_outstanding,
         (SELECT COUNT(*) FROM complaint WHERE consumer_id = p.person_id)                               AS total_complaints,
         (SELECT COUNT(*) FROM connection_application WHERE consumer_id = p.person_id)                  AS total_applications
       FROM person p

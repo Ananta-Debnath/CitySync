@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { fonts, utilities } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, ConnectionIcon } from '../../Icons';
+import { createRechargeBill } from '../../services/api';
 
 const UTIL_ICONS = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 
 const RechargeModal = ({ connection, onClose, onSuccess, t, isDark }) => {
-  const { authFetch } = useAuth();
   const [amount, setAmount] = useState('');
   const [preset, setPreset] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,15 +35,10 @@ const RechargeModal = ({ connection, onClose, onSuccess, t, isDark }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await authFetch('/api/consumer/recharge', {
-        method: 'POST',
-        body: JSON.stringify({ id: connection.prepaid_account_id, amount: val }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Recharge failed');
-      if (onSuccess) onSuccess(data);
+      const res = await createRechargeBill({ id: connection.prepaid_account_id, amount: val });
+      if (onSuccess) onSuccess(res.data);
     } catch (err) {
-      setError(err.message || 'Recharge failed');
+      setError(err.response?.data?.error || err.message || 'Recharge failed');
     } finally {
       setLoading(false);
     }

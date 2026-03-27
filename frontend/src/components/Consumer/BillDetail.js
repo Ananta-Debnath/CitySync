@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, CheckCircle } from '../../Icons';
 import PayBillModal from './PayBillModal';
+import { getConsumerBillById } from '../../services/api';
 
 const UtilIcons = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 
@@ -17,7 +17,6 @@ const Row = ({ label, value, mono, t }) => (
 
 const BillDetail = ({ billId, onClose, onBillPaid }) => {
   const { id: routeId } = useParams();
-  const { authFetch } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const t = tokens[isDark ? 'dark' : 'light'];
@@ -33,16 +32,14 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
 
   const fetchBill = useCallback(async () => {
     try {
-      const res = await authFetch(`/api/consumer/bills/${resolvedBillId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setBill(data);
+      const res = await getConsumerBillById(resolvedBillId);
+      setBill(res.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
-  }, [authFetch, resolvedBillId]);
+  }, [resolvedBillId]);
 
   useEffect(() => { fetchBill(); }, [fetchBill]);
 

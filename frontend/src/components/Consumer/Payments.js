@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, paymentMethods } from '../../theme';
 import BillDetail from './BillDetail';
 import AddMethodModal from './AddMethodModal';
+import { getPaymentMethods, getPaymentHistory, deletePaymentMethod, setDefaultPaymentMethod } from '../../services/api';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const BankIcon    = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -161,7 +161,6 @@ const HistoryRow = ({ p, t, onOpenBill }) => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const Payments = () => {
-  const { authFetch } = useAuth();
   const { isDark }    = useTheme();
   const t = tokens[isDark ? 'dark' : 'light'];
 
@@ -178,23 +177,19 @@ const Payments = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [mRes, hRes] = await Promise.all([
-        authFetch('/api/consumer/payment-methods'),
-        authFetch('/api/consumer/payment-history'),
-      ]);
-      const [mData, hData] = await Promise.all([mRes.json(), hRes.json()]);
+      const [mRes, hRes] = await Promise.all([getPaymentMethods(), getPaymentHistory()]);
+      const [mData, hData] = [mRes.data, hRes.data];
       setMethods(Array.isArray(mData) ? mData : []);
       setHistory(Array.isArray(hData) ? hData : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const handleDelete = async (id) => {
     try {
-      const res = await authFetch(`/api/consumer/payment-methods/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
+      await deletePaymentMethod(id);
       setMethods(m => m.filter(x => x.method_id !== id));
       showToast('Payment method removed');
     } catch { showToast('Failed to delete'); }
@@ -202,8 +197,7 @@ const Payments = () => {
 
   const handleSetDefault = async (id) => {
     try {
-      const res = await authFetch(`/api/consumer/payment-methods/${id}/default`, { method: 'PUT' });
-      if (!res.ok) throw new Error();
+      await setDefaultPaymentMethod(id);
       setMethods(m => m.map(x => ({ ...x, is_default: x.method_id === id })));
       showToast('Default method updated');
     } catch { showToast('Failed to update default'); }
@@ -297,7 +291,7 @@ const Payments = () => {
         )
       )}
 
-      {showAdd && <AddMethodModal onClose={() => setShowAdd(false)} onAdded={fetchAll} t={t} isDark={isDark} authFetch={authFetch} />}
+      {showAdd && <AddMethodModal onClose={() => setShowAdd(false)} onAdded={fetchAll} t={t} isDark={isDark} />}
       {detailBillId && <BillDetail billId={detailBillId} onClose={() => setDetailBillId(null)} />}
     </div>
   );

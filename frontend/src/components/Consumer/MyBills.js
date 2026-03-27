@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, use } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts, utilities, statusColors } from '../../theme';
 import { ElectricityIcon, WaterIcon, GasIcon, BillIcon, Check, FileText } from '../../Icons';
 import { DonutChart, ChartLegend } from '../Charts';
 import PayBillModal from './PayBillModal';
 import BillDetail from './BillDetail';
+import { getConsumerBills, getConsumerConnections } from '../../services/api';
 
 const UtilIcons = { electricity: ElectricityIcon, water: WaterIcon, gas: GasIcon };
 const FILTERS   = ['All', 'Overdue', 'Pending', 'Paid'];
@@ -67,7 +67,6 @@ const BillCard = ({ bill, onPay, onOpenDetail, t, isDark }) => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const MyBills = () => {
-  const { authFetch }               = useAuth();
   const { isDark }                  = useTheme();
   const t                           = tokens[isDark ? 'dark' : 'light'];
 
@@ -84,13 +83,11 @@ const MyBills = () => {
   const fetchBills = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await authFetch('/api/consumer/bills');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setBills(data);
+      const res = await getConsumerBills();
+      setBills(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error(err); }
     finally       { setLoading(false); }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => { fetchBills(); }, [fetchBills]);
 
@@ -135,26 +132,19 @@ const MyBills = () => {
   const fetchConnections = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await authFetch('/api/consumer/connections');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          // Keep only id, name and optional utility type to avoid passing large payload into state
-          const mapped = data.map(c => ({ id: c.connection_id, name: c.connection_name, utility: c.utility_tag, unit: c.unit_of_measurement }));
-          setConnections(mapped);
-          return;
-        }
+      const res = await getConsumerConnections();
+      const data = res.data;
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(c => ({ id: c.connection_id, name: c.connection_name, utility: c.utility_tag, unit: c.unit_of_measurement }));
+        setConnections(mapped);
+        return;
       } else {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to fetch connections');
+        console.error('Failed to fetch connections');
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
-
+  }, []);
   useEffect(() => { fetchConnections(); }, [fetchConnections]);
 
   const filteredByConnection = connectionFilter === 'All' ? bills : bills.filter(b => (b.connection_id ?? b.connection_name) === connectionFilter);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { getMyProfile } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -45,6 +46,7 @@ export const AuthProvider = ({ children }) => {
           Authorization: `Bearer ${active}`,
         },
       });
+      // const res = await getMyProfile();
       if (!res.ok) throw new Error('Failed to fetch user');
       const data = await res.json();
       const role = (typeof active === 'string') ? (jwtDecode(active)?.role ?? null) : null;
