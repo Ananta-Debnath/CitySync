@@ -70,6 +70,11 @@ router.put('/bills/:id/status', adminController.updateBillStatus);
 // Payments
 router.get('/payments', adminController.getPayments);
 
+// Readings
+router.get('/readings', adminController.getReadings);
+router.get('/readings/:id', adminController.getReadingById);
+router.post('/readings/:id/approve', adminController.approveReading);
+
 // Generic table access
 router.get('/table/:tableName', adminController.getTableData);
 router.delete('/table/:tableName/:id', adminController.deleteTableRow);

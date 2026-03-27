@@ -118,6 +118,11 @@ export const markNotificationsRead = () => api.post('/notifications/mark-read');
 export const callAiConsumer = (data) => api.post('/ai/consumer', data);
 export const callAiEmployee = (data) => api.post('/ai/employee', data);
 
+// ── Readings (Employee approval) ───────────────────────────────────
+export const getReadings     = (params) => api.get('/admin/readings', { params });
+export const getReadingById  = (id)     => api.get(`/admin/readings/${id}`);
+export const approveReading  = (id)     => api.post(`/admin/readings/${id}/approve`);
+
 // ── Admin profile & generic table ──────────────────────────────────
 export const getAdminProfile = () => api.get('/admin/profile');
 export const updateAdminProfile = (data) => api.put('/admin/profile', data);

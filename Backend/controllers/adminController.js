@@ -945,6 +945,172 @@ const updatePassword = async (req, res) => {
   }
 };
 
+const getReadings = async (req, res) => {
+  const { status = 'pending', utility_type, date_from, date_to } = req.query;
+
+  try {
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (status === 'pending') {
+      conditions.push('mr.approved_by IS NULL');
+    } else if (status === 'approved') {
+      conditions.push('mr.approved_by IS NOT NULL');
+    }
+
+    if (utility_type) {
+      conditions.push(`u.utility_name = $${idx++}`);
+      params.push(utility_type);
+    }
+    if (date_from) {
+      conditions.push(`mr.reading_date >= $${idx++}`);
+      params.push(date_from);
+    }
+    if (date_to) {
+      conditions.push(`mr.reading_date <= $${idx++}`);
+      params.push(date_to + ' 23:59:59');
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const result = await pool.query(`
+      SELECT
+        mr.reading_id,
+        mr.meter_id,
+        mr.units_logged,
+        mr.time_from,
+        mr.time_to,
+        mr.reading_date,
+        mr.approved_by,
+        cp.first_name || ' ' || cp.last_name AS consumer_name,
+        cp.phone_number AS consumer_phone,
+        fwp.first_name || ' ' || fwp.last_name AS field_worker_name,
+        fwp.phone_number AS field_worker_phone,
+        r.region_name AS field_worker_region,
+        u.utility_name AS utility_type,
+        u.unit_of_measurement
+      FROM meter_reading mr
+      JOIN meter m ON mr.meter_id = m.meter_id
+      JOIN utility_connection uc ON uc.meter_id = m.meter_id AND uc.connection_status ILIKE 'Active'
+      JOIN consumer c ON uc.consumer_id = c.person_id
+      JOIN person cp ON c.person_id = cp.person_id
+      JOIN field_worker fw ON mr.field_worker_id = fw.person_id
+      JOIN person fwp ON fw.person_id = fwp.person_id
+      JOIN region r ON fw.assigned_region_id = r.region_id
+      JOIN tariff t ON mr.tariff_id = t.tariff_id
+      JOIN utility u ON t.utility_id = u.utility_id
+      ${where}
+      ORDER BY mr.reading_date DESC
+    `, params);
+
+    res.json({ data: { readings: result.rows } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getReadingById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        mr.reading_id,
+        mr.meter_id,
+        mr.units_logged,
+        mr.time_from,
+        mr.time_to,
+        mr.reading_date,
+        mr.approved_by,
+        cp.first_name || ' ' || cp.last_name AS consumer_name,
+        cp.phone_number AS consumer_phone,
+        c.person_id AS consumer_id,
+        fwp.first_name || ' ' || fwp.last_name AS field_worker_name,
+        fwp.phone_number AS field_worker_phone,
+        r.region_name AS field_worker_region,
+        u.utility_name AS utility_type,
+        u.unit_of_measurement,
+        m.meter_type
+      FROM meter_reading mr
+      JOIN meter m ON mr.meter_id = m.meter_id
+      JOIN utility_connection uc ON uc.meter_id = m.meter_id AND uc.connection_status ILIKE 'Active'
+      JOIN consumer c ON uc.consumer_id = c.person_id
+      JOIN person cp ON c.person_id = cp.person_id
+      JOIN field_worker fw ON mr.field_worker_id = fw.person_id
+      JOIN person fwp ON fw.person_id = fwp.person_id
+      JOIN region r ON fw.assigned_region_id = r.region_id
+      JOIN tariff t ON mr.tariff_id = t.tariff_id
+      JOIN utility u ON t.utility_id = u.utility_id
+      WHERE mr.reading_id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Reading not found' });
+    }
+
+    const reading = result.rows[0];
+
+    const prevResult = await pool.query(`
+      SELECT units_logged
+      FROM meter_reading
+      WHERE meter_id = $1 AND approved_by IS NOT NULL AND reading_id != $2
+      ORDER BY reading_date DESC LIMIT 1
+    `, [reading.meter_id, id]);
+
+    if (prevResult.rows.length > 0) {
+      reading.previous_reading_units = prevResult.rows[0].units_logged;
+    }
+
+    res.json({ data: reading });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const approveReading = async (req, res) => {
+  const { id } = req.params;
+  const employee_id = req.user.person_id;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const check = await client.query(
+      'SELECT reading_id, approved_by FROM meter_reading WHERE reading_id = $1',
+      [id]
+    );
+
+    if (check.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Reading not found' });
+    }
+
+    if (check.rows[0].approved_by) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Reading already approved' });
+    }
+
+    await client.query(
+      'UPDATE meter_reading SET approved_by = $1 WHERE reading_id = $2',
+      [employee_id, id]
+    );
+
+    await client.query('SELECT create_usage_from_reading($1, $2)', [id, employee_id]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Reading approved successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to approve reading' });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getTables,
   createRegion,
@@ -987,5 +1153,8 @@ module.exports = {
   updateProfile,
   updateAvatar,
   deleteAvatar,
-  updatePassword
+  updatePassword,
+  getReadings,
+  getReadingById,
+  approveReading,
 };

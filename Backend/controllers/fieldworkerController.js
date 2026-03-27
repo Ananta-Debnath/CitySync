@@ -131,10 +131,8 @@ const submitReading = async (req, res) => {
 
     const readingId = readingResult.rows[0].reading_id;
 
-    await client.query(`SELECT create_usage_from_reading($1, $2)`, [readingId, req.user.person_id]);
-
     await client.query('COMMIT');
-    res.status(201).json({ message: 'Reading submitted and usage created', reading_id: readingId });
+    res.status(201).json({ message: 'Reading submitted, pending employee approval', reading_id: readingId });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
