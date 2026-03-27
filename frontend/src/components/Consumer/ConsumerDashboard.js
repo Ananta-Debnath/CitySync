@@ -435,7 +435,7 @@ const ConsumerDashboard = () => {
               <>
                 <div className="font-mono text-[8px] tracking-widest uppercase text-muted mb-2">account</div>
                 <div className="text-[11.5px] leading-relaxed text-txt/65 mb-3">
-                  Manage your personal info, notification preferences, and account settings.
+                  Manage your personal info, and account settings.
                 </div>
                 <button
                   className="font-mono text-[8.5px] tracking-widest uppercase px-3 py-2 rounded-md bg-white/10 text-txt border border-white/20 hover:bg-white/20 mb-2"
