@@ -439,7 +439,7 @@ const getProfile = async (req, res) => {
         a.email,
         a.account_type   AS role,
         a.created_at,
-        -- a.avatar_b64,
+        a.avatar_url,
         c.consumer_type,
         c.registration_date,
         addr.house_num,
@@ -495,21 +495,53 @@ const updateProfile = async (req, res) => {
 }
 
 const updateAvatar = async (req, res) => {
-  const { avatar_b64 } = req.body;
-  if (!avatar_b64) return res.status(400).json({ error: 'avatar_b64 is required' });
+  const { avatar_url } = req.body;
+  if (!avatar_url) return res.status(400).json({ error: 'avatar_url is required' });
   // Limit to ~2MB base64
-  if (avatar_b64.length > 2_800_000)
+  if (avatar_url.length > 2_800_000)
     return res.status(400).json({ error: 'Image too large. Max 2MB.' });
 
   try {
     await pool.query(
-      `UPDATE account SET avatar_b64 = $1 WHERE person_id = $2`,
-      [avatar_b64, req.user.person_id]
+      `UPDATE account SET avatar_url = $1 WHERE person_id = $2`,
+      [avatar_url, req.user.person_id]
     );
-    res.json({ message: 'Avatar updated', avatar_b64 });
+    res.json({ message: 'Avatar updated', avatar_url });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update avatar' });
+  }
+}
+
+const deleteAvatar = async (req, res) => {
+  const cloudinary = require('cloudinary').v2;
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  try {
+    const result = await pool.query(
+      `SELECT avatar_url FROM account WHERE person_id = $1`,
+      [req.user.userId]
+    );
+    const currentUrl = result.rows[0]?.avatar_url;
+    if (currentUrl && currentUrl.includes('cloudinary.com')) {
+      const match = currentUrl.match(/\/upload\/(?:v\d+\/)?(.+?)\.[a-z]+$/i);
+      if (match) {
+        await cloudinary.uploader.destroy(match[1]).catch(err =>
+          console.warn('Cloudinary delete warning:', err.message)
+        );
+      }
+    }
+    await pool.query(
+      `UPDATE account SET avatar_url = NULL WHERE person_id = $1`,
+      [req.user.userId]
+    );
+    res.json({ message: 'Avatar removed' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove avatar' });
   }
 }
 
@@ -834,6 +866,7 @@ module.exports = {
   getProfile,
   updateProfile,
   updateAvatar,
+  deleteAvatar,
   changePassword,
   deactivateAccount,
   getPaymentMethods,

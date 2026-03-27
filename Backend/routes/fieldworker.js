@@ -19,6 +19,7 @@ router.post('/readings', fieldworkerController.submitReading);
 router.get('/profile', fieldworkerController.getProfile);
 router.put('/profile', fieldworkerController.updateProfile);
 router.put('/avatar', fieldworkerController.updateAvatar);
+router.delete('/avatar', fieldworkerController.deleteAvatar);
 router.put('/password', fieldworkerController.updatePassword);
 
 module.exports = router;

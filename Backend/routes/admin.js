@@ -79,6 +79,7 @@ router.delete('/table/:tableName/:id', adminController.deleteTableRow);
 router.get('/profile', adminController.getProfile);
 router.put('/profile', adminController.updateProfile);
 router.put('/avatar', adminController.updateAvatar);
+router.delete('/avatar', adminController.deleteAvatar);
 router.put('/password', adminController.updatePassword);
 
 module.exports = router;
