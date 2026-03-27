@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   ResponsiveContainer,
@@ -18,25 +18,47 @@ const UTILITY_CONFIG = {
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+const normalizeUtilityTag = (tag = '') => {
+  const t = String(tag).toLowerCase();
+  if (t.includes('electric')) return 'electricity';
+  if (t.includes('water')) return 'water';
+  if (t.includes('gas')) return 'gas';
+  return null;
+};
+
 // ── Data helpers ──────────────────────────────────────────────────────────────
 /** Group raw usage rows into { 'YYYY-MM': { total, label } } sorted ascending */
 const groupByMonth = (rows) => {
   const map = {};
   rows.forEach(r => {
-    const d = new Date(r.time_to);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (!map[key]) map[key] = { key, label: MONTH_ABBR[d.getMonth()], total: 0, cost: 0 };
-    map[key].total += parseFloat(r.units_logged || 0);
-    map[key].cost  += parseFloat(r.cost || 0);
+    const key = r.month || null;
+    let label = '';
+
+    if (r.month_name) {
+      // label = String(r.month_name).split(' ')[0];
+      label = r.month_name;
+    } else if (key) {
+      const [y, m] = key.split('-').map(Number);
+      const d = new Date(y, (m || 1) - 1, 1);
+      label = MONTH_ABBR[d.getMonth()];
+    } else {
+      const d = new Date(r.time_to || r.time_from || Date.now());
+      label = MONTH_ABBR[d.getMonth()];
+    }
+
+    const resolvedKey = key || `${new Date(r.time_to || r.time_from || Date.now()).getTime()}`;
+    if (!map[resolvedKey]) map[resolvedKey] = { key: resolvedKey, label, total: 0, cost: 0 };
+    map[resolvedKey].total += parseFloat(r.units_logged || 0);
+    map[resolvedKey].cost  += parseFloat(r.cost || 0);
   });
   return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
 };
 
-const calculateUtilityBreakdown = (data) => {
+const calculateUtilityBreakdown = (connections) => {
   const totals = { electricity: 0, water: 0, gas: 0 };
-  data.forEach(r => {
-    const tag = r.utility_tag;
-    if (totals[tag] !== undefined) totals[tag] += parseFloat(r.units_logged || 0);
+  connections.forEach(c => {
+    const tag = normalizeUtilityTag(c.utility);
+    if (tag && totals[tag] !== undefined) totals[tag] += parseFloat(c.unitsUsed || 0);
   });
   return Object.entries(UTILITY_CONFIG).map(([key, cfg]) => ({
     name: cfg.label,
@@ -45,9 +67,8 @@ const calculateUtilityBreakdown = (data) => {
   })).filter(d => d.value > 0);
 };
 
-const prepareComparisonData = (data, selectedUtility, period) => {
-  const filtered = data.filter(r => r.utility_tag === selectedUtility);
-  const months = groupByMonth(filtered);
+const prepareComparisonData = (data, period) => {
+  const months = groupByMonth(data);
   const current  = months.slice(-period);
   const previous = months.slice(-period * 2, -period);
   const len = Math.max(current.length, previous.length);
@@ -58,9 +79,8 @@ const prepareComparisonData = (data, selectedUtility, period) => {
   }));
 };
 
-const prepareMonthlyData = (data, selectedUtility, period) => {
-  const filtered = data.filter(r => r.utility_tag === selectedUtility);
-  const months = groupByMonth(filtered);
+const prepareMonthlyData = (data, period) => {
+  const months = groupByMonth(data);
   return months.slice(-period).map(m => ({
     month: m.label,
     value: Math.round(m.total * 10) / 10,
@@ -116,7 +136,11 @@ const CustomTooltip = ({ active, payload, label }) => {
             fontSize: '13px',
             color: '#E8E8E8',
           }}>
-            {entry.name}: <strong>{entry.value.toFixed(2)}</strong>
+            {(() => {
+              const n = typeof entry.name === 'string' ? entry.name : '';
+              const display = n ? (n.charAt(0).toUpperCase() + n.slice(1)) : n;
+              return <>{display}: <strong>{entry.value.toFixed(2)}</strong></>;
+            })()}
           </span>
         </div>
       ))}
@@ -155,8 +179,9 @@ const ChartCard = ({ accentColor, title, right, children }) => (
   </div>
 );
 
-const UtilityTab = ({ utilKey, active, onClick }) => {
-  const { label, color, Icon } = UTILITY_CONFIG[utilKey];
+const UtilityTab = ({ utilityTag, label, active, onClick }) => {
+  const normalized = normalizeUtilityTag(utilityTag);
+  const { color, Icon } = UTILITY_CONFIG[normalized] || UTILITY_CONFIG.electricity;
   return (
     <button
       onClick={onClick}
@@ -292,36 +317,36 @@ const ComparisonLineChart = ({ data, period, setPeriod, color }) => {
             <YAxis stroke="rgba(232,232,232,0.45)" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             <Line
-  type="monotone"
-  dataKey="previous"
-  stroke="rgba(232,232,232,0.25)"
-  strokeWidth={1.5}
-  strokeDasharray="5 5"
-  dot={false}
-  activeDot={{
-    r: 4,
-    fill: 'rgba(232,232,232,0.5)',
-  }}
-  animationDuration={600}
-  animationEasing="ease-out"
-  connectNulls={true}
-/>
+              type="monotone"
+              dataKey="previous"
+              stroke="rgba(232,232,232,0.25)"
+              strokeWidth={1.5}
+              strokeDasharray="5 5"
+              dot={false}
+              activeDot={{
+                r: 4,
+                fill: 'rgba(232,232,232,0.5)',
+              }}
+              animationDuration={600}
+              animationEasing="ease-out"
+              connectNulls={true}
+            />
             <Line
-  type="monotone"
-  dataKey="current"
-  stroke={color}
-  strokeWidth={2.5}
-  dot={false}
-  activeDot={{
-    r: 6,
-    fill: color,
-    stroke: '#111',
-    strokeWidth: 2,
-  }}
-  animationDuration={600}
-  animationEasing="ease-out"
-  connectNulls={true}
-/>
+              type="monotone"
+              dataKey="current"
+              stroke={color}
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{
+                r: 6,
+                fill: color,
+                stroke: '#111',
+                strokeWidth: 2,
+              }}
+              animationDuration={600}
+              animationEasing="ease-out"
+              connectNulls={true}
+            />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -371,35 +396,76 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
 const UsageHistory = () => {
   const { authFetch } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [connections, setConnections] = useState([]);
   const [usageData, setUsageData] = useState([]);
-  const [selectedUtility, setSelectedUtility] = useState('electricity');
+  const [selectedConnection, setSelectedConnection] = useState(null);
   const [period, setPeriod] = useState(6);
 
+  const fetchUsageData = useCallback(async (connectionId) => {
+    if (!connectionId) {
+      setUsageData([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const res  = await authFetch(`/api/consumer/usage?granularity=month&connection_id=${encodeURIComponent(connectionId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch usage data');
+      setUsageData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch usage data:', err);
+      setUsageData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [authFetch]);
+
   useEffect(() => {
-    const fetchUsageData = async () => {
+    const fetchConnections = async () => {
       try {
         setLoading(true);
-        const res  = await authFetch('/api/consumer/usage?granularity=month');
+        const res = await authFetch('/api/consumer/connections');
         const data = await res.json();
-        setUsageData(Array.isArray(data) ? data : []);
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch connections');
+
+        const normalized = Array.isArray(data)
+          ? data.map(c => ({
+              id: c.connection_id,
+              name: c.connection_name,
+              utility: c.utility_tag,
+              unit: c.unit_of_measurement,
+              unitsUsed: c.units_used,
+            }))
+          : [];
+
+        setConnections(normalized);
+        setSelectedConnection(prev => prev ?? normalized[0]?.id ?? null);
       } catch (err) {
-        console.error('Failed to fetch usage data:', err);
+        console.error('Failed to fetch connections:', err);
+        setConnections([]);
         setUsageData([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchUsageData();
-  }, []);
+    fetchConnections();
+  }, [authFetch]);
+
+  useEffect(() => {
+    if (selectedConnection) fetchUsageData(selectedConnection);
+  }, [selectedConnection, fetchUsageData]);
 
   if (loading) return <LoadingSkeleton />;
 
-  const activeColor = UTILITY_CONFIG[selectedUtility].color;
-  const activeUnit  = usageData.find(r => r.utility_tag === selectedUtility)?.unit_of_measurement || '';
+  const activeConn = connections.find(c => c.id === selectedConnection);
+  const activeUtility = normalizeUtilityTag(activeConn?.utility) || 'electricity';
+  const activeColor = UTILITY_CONFIG[activeUtility].color;
+  const activeUnit  = activeConn?.unit || usageData.find(r => r.unit_of_measurement)?.unit_of_measurement || '';
 
-  const breakdownData  = calculateUtilityBreakdown(usageData);
-  const comparisonData = prepareComparisonData(usageData, selectedUtility, period);
-  const monthlyData    = prepareMonthlyData(usageData, selectedUtility, period);
+  const breakdownData  = calculateUtilityBreakdown(connections);
+  const comparisonData = prepareComparisonData(usageData, period);
+  const monthlyData    = prepareMonthlyData(usageData, period);
 
   return (
     <div className="space-y-6">
@@ -418,14 +484,15 @@ const UsageHistory = () => {
           <p className="font-outfit text-sm text-sub">Track your consumption patterns</p>
         </div>
 
-        {/* Utility tabs */}
+        {/* Connection tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {Object.keys(UTILITY_CONFIG).map(key => (
+          {connections.map(c => (
             <UtilityTab
-              key={key}
-              utilKey={key}
-              active={selectedUtility === key}
-              onClick={() => setSelectedUtility(key)}
+              key={c.id}
+              utilityTag={c.utility}
+              label={c.name}
+              active={selectedConnection === c.id}
+              onClick={() => setSelectedConnection(c.id)}
             />
           ))}
         </div>

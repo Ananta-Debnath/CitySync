@@ -7,3 +7,4 @@ frontend_old
 
 # Files
 Backend/.env
+frontend/src/components/Consumer/UsageOld.js

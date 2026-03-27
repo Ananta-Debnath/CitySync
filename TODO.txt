@@ -1,6 +1,8 @@
 FIX AI CONTEXT ISSUE  --Fixed
 
-AvatarContext api
+AvatarContext api  ---DONE
+
+NEW CONNECTIONS APPLICATION NOT WORKING
 
 Gpay grad change
 VAT
