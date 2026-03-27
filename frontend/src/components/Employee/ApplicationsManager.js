@@ -29,7 +29,7 @@ const ApplicationsManager = () => {
 
   const handleUpdateStatus = async (id, status) => {
     try {
-      await updateApplicationStatus(id, { status, reviewed_by: user.userId });
+      await updateApplicationStatus(id, { status });
       fetchApplications();
     } catch (err) {
       alert('Failed to update application status');
@@ -63,11 +63,11 @@ const ApplicationsManager = () => {
                   <div style={{ fontSize: 12, color: t.textSub }}>{app.consumer_phone}</div>
                 </td>
                 <td style={{ padding: 12, borderBottom: `1px solid ${t.border}`, color: t.text, fontSize: 14 }}>
-                  <div>{app.utility_type}</div>
+                  <div>{app.utility_name}</div>
                   <div style={{ fontSize: 12, color: t.textSub }}>{app.requested_connection_type} ({app.priority})</div>
                 </td>
                 <td style={{ padding: 12, borderBottom: `1px solid ${t.border}`, color: t.text, fontSize: 14, maxWidth: 200 }}>
-                  <div style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={app.address}>{app.address}</div>
+                  <div style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={app.full_address}>{app.full_address}</div>
                 </td>
                 <td style={{ padding: 12, borderBottom: `1px solid ${t.border}`, color: t.text, fontSize: 14 }}>
                   <span style={{

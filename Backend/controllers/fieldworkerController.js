@@ -227,7 +227,7 @@ const updatePassword = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT password_hashed FROM account WHERE person_id = $1`,
+      `SELECT password_hashed FROM account WHERE person_id = $1 AND account_type = 'field_worker'`,
       [req.user.person_id]
     );
     const valid = await bcrypt.compare(current_password, result.rows[0].password_hashed);
@@ -235,7 +235,7 @@ const updatePassword = async (req, res) => {
 
     const hashed = await bcrypt.hash(new_password, 10);
     await pool.query(
-      `UPDATE account SET password_hashed = $1 WHERE person_id = $2`,
+      `UPDATE account SET password_hashed = $1 WHERE person_id = $2 AND account_type = 'field_worker'`,
       [hashed, req.user.person_id]
     );
     res.json({ message: 'Password changed successfully' });

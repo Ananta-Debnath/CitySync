@@ -35,7 +35,7 @@ const ComplaintsManager = () => {
   const handleAssign = async (complaintId, workerId) => {
     if (!workerId) return;
     try {
-      await assignComplaint(complaintId, { assigned_to: workerId, assigned_by: user.userId });
+      await assignComplaint(complaintId, { assigned_to: workerId });
       fetchData();
     } catch (err) {
       alert('Failed to assign complaint');

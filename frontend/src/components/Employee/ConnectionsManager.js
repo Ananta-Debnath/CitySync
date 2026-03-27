@@ -298,7 +298,7 @@ const ConnectionsManager = () => {
                   <div style={{ fontSize: 11, color: t.textSub }}>{c.tariff_name}</div>
                 </td>
                 <td style={{ padding: '12px', borderBottom: `1px solid ${t.border}`, fontSize: 13, color: t.text }}>
-                  <div>{c.house_num}, {c.street_name}</div>
+                  <div>{c.address}</div>
                   <div style={{ fontSize: 11, color: t.textSub }}>{c.region_name}</div>
                 </td>
                 <td style={{ padding: '12px', borderBottom: `1px solid ${t.border}`, fontSize: 12, color: t.textSub }}>

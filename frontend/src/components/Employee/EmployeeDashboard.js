@@ -106,7 +106,7 @@ const EmployeeDashboard = () => {
         />
         <StatCard
           label="Active Connections"
-          value={stats.connection || 0}
+          value={stats.utility_connection || 0}
           sub="Across all regions"
           gradient={utilColors.water.gradient}
           glow={utilColors.water.glow}
