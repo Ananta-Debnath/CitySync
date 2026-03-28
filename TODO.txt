@@ -2,10 +2,12 @@ FIX AI CONTEXT ISSUE  --Fixed
 FIX SOCKET THING
 DELETE PROFILE PIC ISSUE
 DASHBOARD BILL INFO FIX
+PASSWORD EYE ICON
+Forget Pass
 
 AvatarContext api  ---DONE
 
-NEW CONNECTIONS APPLICATION NOT WORKING
+NEW CONNECTIONS APPLICATION NOT WORKING   ---FIXED
 
 Gpay grad change
 VAT
@@ -32,7 +34,7 @@ details -> pay --fix   ---FIXED, needs to be centered
 reload after payment ---DONE
 color code for paid, unpaid   --- has to be changed in theme.js  ---DONE
 add filters  ---DONE
-change first headers amount colors
+change first headers amount colors  ---DONE
 
 ---BillDetail---
 due and paid alternate  ---DONE
@@ -48,11 +50,11 @@ history -> click should show details of bill    ---DONE
 
 ---USAGE---
 months button???   ---DONE
-total meter reads is excessive??
-graph text font size too much
+total meter reads is excessive??   ---FIXED
+graph text font size too much  ---FIXED
 bar chart y axis  ---DONE
-Move graphs side by side?
-Have day mode in line graph??
+Move graphs side by side?  ---REVOKED
+Have day mode in line graph??  
 Have delay in fetching data. --optional
 MINOR ISSUE WITH BAR CHART
 

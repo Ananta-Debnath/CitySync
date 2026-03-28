@@ -641,6 +641,7 @@ const getBills = async (req, res) => {
       LEFT JOIN tariff t ON uc.tariff_id = t.tariff_id
       LEFT JOIN utility u ON t.utility_id = u.utility_id
       LEFT JOIN bill_postpaid bp ON bd.bill_document_id = bp.bill_document_id
+      WHERE bd.bill_status NOT ILIKE 'CANCELLED'
       ORDER BY bd.bill_document_id DESC
     `);
     res.json({ count: result.rows.length, data: result.rows });
