@@ -2,12 +2,19 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAvatar } from '../context/AvatarContext';
+import { getConsumerProfile, getAdminProfile, getFieldworkerProfile, updateAvatar, deleteAvatar, changePassword, deactivateConsumerAccount } from '../services/api';
 
-const API_BASE = {
-  consumer:     '/api/consumer',
-  field_worker: '/api/fieldworker',
-  employee:     '/api/admin',
-};
+// const API_BASE = {
+//   consumer:     '/api/consumer',
+//   field_worker: '/api/fieldworker',
+//   employee:     '/api/admin',
+// };
+
+const PROFILE_DICT = {
+  consumer:     getConsumerProfile,
+  employee:     getAdminProfile,
+  field_worker: getFieldworkerProfile,
+}
 
 const fmtDate  = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 const initials = (f, l) => `${f?.[0] || ''}${l?.[0] || ''}`.toUpperCase();
@@ -70,7 +77,8 @@ const Profile = () => {
   const { setAvatar: setGlobalAvatar } = useAvatar();
   const navigate = useNavigate();
 
-  const apiBase       = API_BASE[user?.role] || API_BASE.consumer;
+  // const apiBase       = API_BASE[user?.role] || API_BASE.consumer;
+  const getProfile    = PROFILE_DICT[user?.role] || getConsumerProfile;
   const isConsumer    = user?.role === 'consumer';
   const isFieldWorker = user?.role === 'field_worker';
   const isEmployee    = user?.role === 'employee';
@@ -92,14 +100,17 @@ const Profile = () => {
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await authFetch(`${apiBase}/profile`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      // const res  = await authFetch(`${apiBase}/profile`);
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.error);
+      const res = await getProfile();
+      const data = res?.data;
+      if (!data) throw new Error('Failed to load profile');
       setProfile(data);
       if (data.avatar_url) setAvatar(data.avatar_url);
     } catch (err) { console.error(err); }
     finally       { setLoading(false); }
-  }, [authFetch, apiBase]);
+  }, [getProfile]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -123,12 +134,15 @@ const Profile = () => {
 
       const imageUrl = cloudData.secure_url;
 
-      const res  = await authFetch(`${apiBase}/avatar`, {
-        method: 'PUT',
-        body: JSON.stringify({ avatar_url: imageUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      // const res  = await authFetch(`${apiBase}/avatar`, {
+      //   method: 'PUT',
+      //   body: JSON.stringify({ avatar_url: imageUrl }),
+      // });
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.error);
+      const res  = await updateAvatar({ avatar_url: imageUrl });
+      const data = res?.data;
+      if (!data) throw new Error('Failed to update avatar');
 
       setAvatar(imageUrl);
       setGlobalAvatar(imageUrl);
@@ -149,12 +163,16 @@ const Profile = () => {
       return setPwdForm(f => ({ ...f, error: 'New passwords do not match.' }));
     setPwdForm(f => ({ ...f, loading: true, error: '' }));
     try {
-      const res  = await authFetch(`${apiBase}/password`, {
-        method: 'PUT',
-        body: JSON.stringify({ current_password: pwdForm.current, new_password: pwdForm.next }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update password.');
+      // const res  = await authFetch(`${apiBase}/password`, {
+      //   method: 'PUT',
+      //   body: JSON.stringify({ current_password: pwdForm.current, new_password: pwdForm.next }),
+      // });
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.error || 'Failed to update password.');
+      const res = await changePassword({ current_password: pwdForm.current, new_password: pwdForm.next });
+      const data = res?.data;
+      if (!data) throw new Error('Failed to update password.');
+
       setModal(null);
       setPwdForm({ current: '', next: '', confirm: '', error: '', loading: false });
       showToast('Password updated successfully!');
@@ -168,12 +186,16 @@ const Profile = () => {
       return setDeactivateForm(f => ({ ...f, error: 'Password is required to confirm.' }));
     setDeactivateForm(f => ({ ...f, loading: true, error: '' }));
     try {
-      const res  = await authFetch(`${apiBase}/deactivate`, {
-        method: 'PUT',
-        body: JSON.stringify({ password: deactivateForm.password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to deactivate account.');
+      // const res  = await authFetch(`${apiBase}/deactivate`, {
+      //   method: 'PUT',
+      //   body: JSON.stringify({ password: deactivateForm.password }),
+      // });
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.error || 'Failed to deactivate account.');
+      const res = await deactivateConsumerAccount({ password: deactivateForm.password });
+      const data = res?.data;
+      if (!data) throw new Error('Failed to deactivate account.');
+
       setModal(null);
       showToast('Account deactivated. Logging out...');
       setTimeout(() => logout(), 1800);
@@ -273,8 +295,10 @@ const Profile = () => {
                     onClick={async () => {
                       setAvtLoad(true);
                       try {
-                        const res = await authFetch(`${apiBase}/avatar`, { method: 'DELETE' });
-                        if (!res.ok) throw new Error('Failed to remove photo');
+                        // const res = await authFetch(`${apiBase}/avatar`, { method: 'DELETE' });
+                        const res = await deleteAvatar();
+                        const data = res?.data;
+                        if (!data) throw new Error('Failed to remove photo');
                         setAvatar(null);
                         setGlobalAvatar(null);
                         showToast('Profile photo removed');

@@ -96,10 +96,10 @@ export const submitMeterReading       = (data)     => api.post('/fieldworker/rea
 
 // ── Fieldworker Profile ───────────────────────────────────────────
 export const getFieldworkerProfile = () => api.get('/fieldworker/profile');
-export const updateFieldworkerProfile = (data) => api.put('/fieldworker/profile', data);
-export const updateFieldworkerAvatar = (data) => api.put('/fieldworker/avatar', data);
-export const deleteFieldworkerAvatar = () => api.delete('/fieldworker/avatar');
-export const changeFieldworkerPassword = (data) => api.put('/fieldworker/password', data);
+// export const updateFieldworkerProfile = (data) => api.put('/fieldworker/profile', data);
+// export const updateFieldworkerAvatar = (data) => api.put('/fieldworker/avatar', data);
+// export const deleteFieldworkerAvatar = () => api.delete('/fieldworker/avatar');
+// export const changeFieldworkerPassword = (data) => api.put('/fieldworker/password', data);
 
 // ── Public (no auth) ──────────────────────────────────────────────
 export const getPublicTestDb = () => api.get('/public/test-db');
@@ -110,6 +110,10 @@ export const getPublicMobileBankingProviders = () => api.get('/public/mobile-ban
 
 // ── Profile (generic) ─────────────────────────────────────────────
 export const getMyProfile = () => api.get('/profile/me');
+export const updateProfile = (data) => api.put('/profile/profile', data);
+export const updateAvatar = (data) => api.put('/profile/avatar', data);
+export const deleteAvatar = () => api.delete('/profile/avatar');
+export const changePassword = (data) => api.put('/profile/password', data);
 
 // ── Notifications ─────────────────────────────────────────────────
 export const getNotifications = () => api.get('/notifications');
@@ -126,16 +130,16 @@ export const approveReading  = (id)     => api.post(`/admin/readings/${id}/appro
 
 // ── Admin profile & generic table ──────────────────────────────────
 export const getAdminProfile = () => api.get('/admin/profile');
-export const updateAdminProfile = (data) => api.put('/admin/profile', data);
-export const updateAdminAvatar = (data) => api.put('/admin/avatar', data);
-export const deleteAdminAvatar = () => api.delete('/admin/avatar');
-export const adminChangePassword = (data) => api.put('/admin/password', data);
+// export const updateAdminProfile = (data) => api.put('/admin/profile', data);
+// export const updateAdminAvatar = (data) => api.put('/admin/avatar', data);
+// export const deleteAdminAvatar = () => api.delete('/admin/avatar');
+// export const adminChangePassword = (data) => api.put('/admin/password', data);
 export const getTableData = (tableName) => api.get(`/admin/table/${tableName}`);
 export const deleteTableRow = (tableName, id) => api.delete(`/admin/table/${tableName}/${id}`);
 
 // ── Consumer (Shared/Dedicated) ───────────────────────────────────
 export const getConsumerProfile        = () => api.get('/consumer/profile');
-export const updateConsumerProfile     = (data) => api.put('/consumer/profile', data);
+// export const updateConsumerProfile     = (data) => api.put('/consumer/profile', data);
 export const getConsumerConnections    = () => api.get('/consumer/connections');
 export const getConsumerConnectionById = (id) => api.get(`/consumer/connections/${id}`);
 export const getConsumerBills          = (limit) => api.get('/consumer/bills', { params: { limit } });
@@ -146,9 +150,9 @@ export const getConsumerComplaints     = () => api.get('/consumer/complaints');
 export const createComplaint           = (data) => api.post('/consumer/complaints', data);
 export const getApplicationsConsumer   = () => api.get('/consumer/applications');
 export const submitConsumerApplication = (data) => api.post('/consumer/applications', data);
-export const updateConsumerAvatar      = (data) => api.put('/consumer/avatar', data);
-export const deleteConsumerAvatar      = () => api.delete('/consumer/avatar');
-export const changeConsumerPassword    = (data) => api.put('/consumer/password', data);
+// export const updateConsumerAvatar      = (data) => api.put('/consumer/avatar', data);
+// export const deleteConsumerAvatar      = () => api.delete('/consumer/avatar');
+// export const changeConsumerPassword    = (data) => api.put('/consumer/password', data);
 export const deactivateConsumerAccount = (data) => api.put('/consumer/deactivate', data);
 export const getPaymentMethods         = () => api.get('/consumer/payment-methods');
 export const addPaymentMethod          = (data) => api.post('/consumer/payment-methods', data);

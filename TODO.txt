@@ -1,6 +1,6 @@
 FIX AI CONTEXT ISSUE  --Fixed
 FIX SOCKET THING
-DELETE PROFILE PIC ISSUE
+DELETE PROFILE PIC ISSUE ---DONE
 DASHBOARD BILL INFO FIX
 PASSWORD EYE ICON
 Forget Pass
@@ -71,7 +71,7 @@ Fix related connection  ---DONE
 ---PROFILE---
 change pass text field eye disappear after reclicking text box  --DONE
 the admin only thing???
-Profile pic
+Profile pic ---DONE
 move cloudinarything to backend??
 
 
@@ -112,5 +112,5 @@ No choice of worker just assign (rest will be done in backend)
 
 -------------------WORKER------------------
 
-log reading doesnt genereate usage immediately
+log reading doesnt genereate usage immediately --DONE
 tariff details in log
