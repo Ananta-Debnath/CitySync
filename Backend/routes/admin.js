@@ -60,6 +60,7 @@ router.put('/applications/:id/status', adminController.updateApplicationStatus);
 // Complaints
 router.get('/complaints', adminController.getComplaints);
 router.put('/complaints/:id/assign', adminController.assignComplaint);
+router.post('/complaints/:id/assign', adminController.assignComplaintAuto);
 router.put('/complaints/:id/status', adminController.updateComplaintStatus);
 
 // Billing

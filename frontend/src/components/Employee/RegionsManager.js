@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getRegions, createRegion, updateRegion, deleteRegion } from '../../services/api';
 
+const grain = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`;
+
 const RegionsManager = () => {
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,29 +61,32 @@ const RegionsManager = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="font-outfit text-sub">Loading regions...</div>
+      <div className="space-y-3">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-14 bg-card border-0.5 border-white/[0.07] rounded-xl animate-pulse" />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative">
       {/* Grain texture overlay */}
-      <div 
-        className="fixed inset-0 z-[1] pointer-events-none opacity-[0.04]" 
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`
-        }}
+      <div
+        className="fixed inset-0 z-[1] pointer-events-none opacity-[0.04]"
+        style={{ backgroundImage: grain }}
       />
 
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="font-outfit text-2xl font-semibold text-txt mb-2">Regions</h2>
-            <p className="font-outfit text-sm text-sub">Manage service regions and postal codes</p>
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-elec mb-2">
+              Employee Portal / Regions
+            </div>
+            <h2 className="font-outfit text-2xl font-semibold text-txt tracking-tight">Regions</h2>
+            <p className="font-outfit text-sm text-sub mt-1">Manage service regions and postal codes</p>
           </div>
           {!showCreate && (
             <button
@@ -153,12 +158,12 @@ const RegionsManager = () => {
           <div className="h-[1.5px] bg-elec/45 rounded-t-2xl" />
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-white/[0.07]">
-                <tr>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">ID</th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">Region Name</th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">Postal Code</th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">Actions</th>
+              <thead>
+                <tr className="bg-card2">
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-sub border-b border-white/[0.05]">ID</th>
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-sub border-b border-white/[0.05]">Region Name</th>
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-sub border-b border-white/[0.05]">Postal Code</th>
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-sub border-b border-white/[0.05]">Actions</th>
                 </tr>
               </thead>
               <tbody>

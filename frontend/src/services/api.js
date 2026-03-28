@@ -51,6 +51,7 @@ export const updateApplicationStatus = (id, data) => api.put(`/admin/application
 export const getComplaintsAdmin         = ()         => api.get('/admin/complaints');
 export const updateComplaintStatusAdmin = (id, data) => api.put(`/admin/complaints/${id}/status`, data);
 export const assignComplaint            = (id, data) => api.put(`/admin/complaints/${id}/assign`, data);
+export const assignComplaintAuto        = (id, data) => api.post(`/admin/complaints/${id}/assign`, data);
 
 // ── Meters ─────────────────────────────────────────────────────────
 export const getMeters    = () =>     api.get('/admin/meters');

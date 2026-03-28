@@ -29,6 +29,9 @@ BEGIN
 END;
 $$;
 
+
+
+
 CREATE OR REPLACE FUNCTION get_rate(p_tariff_id INTEGER, p_slab_num INTEGER)
 RETURNS NUMERIC(10, 2)
 LANGUAGE plpgsql
@@ -466,3 +469,28 @@ AFTER INSERT ON payment
 FOR EACH ROW
 EXECUTE FUNCTION payment_after_insert();
 
+
+
+--------VIEWS----------
+--  Create the field worker stats view used by auto-assignment
+CREATE OR REPLACE VIEW field_worker_stats AS
+SELECT
+    fw.person_id,
+    fw.assigned_region_id,
+    p.first_name,
+    p.last_name,
+    COUNT(CASE WHEN c.status IN ('Pending', 'In Progress') THEN 1 END) AS active_assignments,
+    COUNT(CASE WHEN c.status = 'Resolved' THEN 1 END) AS total_resolved,
+    AVG(CASE
+        WHEN c.status = 'Resolved' AND c.assignment_date IS NOT NULL AND c.resolution_date IS NOT NULL
+        THEN EXTRACT(EPOCH FROM (c.resolution_date::timestamp - c.assignment_date::timestamp)) / 86400
+    END) AS avg_resolution_days,
+    ROUND(
+        100.0 * COUNT(CASE WHEN c.status = 'Resolved' THEN 1 END) /
+        NULLIF(COUNT(c.complaint_id), 0),
+        2
+    ) AS resolution_rate
+FROM field_worker fw
+JOIN person p ON fw.person_id = p.person_id
+LEFT JOIN complaint c ON fw.person_id = c.assigned_to
+GROUP BY fw.person_id, fw.assigned_region_id, p.first_name, p.last_name;

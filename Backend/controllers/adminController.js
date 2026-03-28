@@ -564,13 +564,15 @@ const updateApplicationStatus = async (req, res) => {
 const getComplaints = async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT 
-        comp.*, 
+      SELECT
+        comp.*,
         p.first_name  as consumer_first_name,
         p.last_name   as consumer_last_name,
         p.phone_number as consumer_phone,
         e1.first_name as assigned_by_name,
-        fw_p.first_name || ' ' || fw_p.last_name as assigned_to_name
+        fw_p.first_name || ' ' || fw_p.last_name as assigned_to_name,
+        r.region_id,
+        r.region_name
       FROM complaint comp
       LEFT JOIN consumer c ON comp.consumer_id = c.person_id
       LEFT JOIN person p ON c.person_id = p.person_id
@@ -578,11 +580,103 @@ const getComplaints = async (req, res) => {
       LEFT JOIN person e1 ON emp1.person_id = e1.person_id
       LEFT JOIN field_worker fw ON comp.assigned_to = fw.person_id
       LEFT JOIN person fw_p ON fw.person_id = fw_p.person_id
+      LEFT JOIN utility_connection uc ON comp.connection_id = uc.connection_id
+      LEFT JOIN meter m ON uc.meter_id = m.meter_id
+      LEFT JOIN address a ON m.address_id = a.address_id
+      LEFT JOIN region r ON a.region_id = r.region_id
       ORDER BY comp.complaint_id DESC
     `);
     res.json({ count: result.rows.length, data: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const assignComplaintAuto = async (req, res) => {
+  const { id: complaintId } = req.params;
+  const { priority = 'Normal' } = req.body;
+  const assigned_by = req.user.person_id;
+
+  try {
+    // Step 1: Get complaint region via connection → meter → address → region
+    const complaintResult = await pool.query(`
+      SELECT c.complaint_id, r.region_id, r.region_name
+      FROM complaint c
+      LEFT JOIN utility_connection uc ON c.connection_id = uc.connection_id
+      LEFT JOIN meter m ON uc.meter_id = m.meter_id
+      LEFT JOIN address a ON m.address_id = a.address_id
+      LEFT JOIN region r ON a.region_id = r.region_id
+      WHERE c.complaint_id = $1
+    `, [complaintId]);
+
+    if (complaintResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
+
+    const { region_id, region_name } = complaintResult.rows[0];
+
+    if (!region_id) {
+      return res.status(400).json({ error: 'Complaint has no region (no linked connection)' });
+    }
+
+    // Step 2: Find best field worker based on priority
+    let fieldWorkerQuery;
+    if (priority === 'Urgent') {
+      fieldWorkerQuery = `
+        SELECT fws.person_id, fws.first_name, fws.last_name,
+               fws.active_assignments, fws.total_resolved,
+               fws.resolution_rate, fws.avg_resolution_days
+        FROM field_worker_stats fws
+        WHERE fws.assigned_region_id = $1
+        ORDER BY
+          fws.resolution_rate DESC NULLS LAST,
+          fws.avg_resolution_days ASC NULLS LAST,
+          fws.total_resolved DESC,
+          fws.active_assignments ASC
+        LIMIT 1
+      `;
+    } else {
+      fieldWorkerQuery = `
+        SELECT fws.person_id, fws.first_name, fws.last_name,
+               fws.active_assignments, fws.total_resolved
+        FROM field_worker_stats fws
+        WHERE fws.assigned_region_id = $1
+        ORDER BY
+          fws.active_assignments ASC,
+          fws.total_resolved DESC
+        LIMIT 1
+      `;
+    }
+
+    const workerResult = await pool.query(fieldWorkerQuery, [region_id]);
+
+    if (workerResult.rows.length === 0) {
+      return res.status(404).json({ error: `No field workers available in region: ${region_name}` });
+    }
+
+    const selectedWorker = workerResult.rows[0];
+
+    // Step 3: Assign complaint
+    const updateResult = await pool.query(`
+      UPDATE complaint
+      SET assigned_to = $1, assigned_by = $2, assignment_date = CURRENT_DATE,
+          status = 'In Progress', priority = $3
+      WHERE complaint_id = $4
+      RETURNING *
+    `, [selectedWorker.person_id, assigned_by, priority, complaintId]);
+
+    return res.status(200).json({
+      success: true,
+      message: `Complaint assigned to ${selectedWorker.first_name} ${selectedWorker.last_name}`,
+      data: {
+        complaint: updateResult.rows[0],
+        assigned_worker: selectedWorker,
+        region: region_name
+      }
+    });
+  } catch (err) {
+    console.error('Auto-assign error:', err);
+    res.status(500).json({ error: 'Failed to assign complaint', details: err.message });
   }
 };
 
@@ -1142,6 +1236,7 @@ module.exports = {
   updateApplicationStatus,
   getComplaints,
   assignComplaint,
+  assignComplaintAuto,
   updateComplaintStatus,
   getBills,
   generateBill,

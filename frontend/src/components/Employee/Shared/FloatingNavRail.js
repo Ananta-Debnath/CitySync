@@ -8,7 +8,6 @@ import {
   MessageSquare,
   Users,
   TrendingUp,
-  Settings,
   UserCircle,
   LogOut,
   Link as LinkIcon,
@@ -37,7 +36,6 @@ const FloatingNavRail = () => {
     { label: 'Billing', path: '/employee/billing', Icon: CreditCard },
     { divider: true },
     { label: 'Analytics', path: '/employee/analytics', Icon: TrendingUp },
-    { label: 'Operations', path: '/employee/operations', Icon: Settings },
     { divider: true },
     { label: 'Profile', path: '/employee/profile', Icon: UserCircle },
   ];

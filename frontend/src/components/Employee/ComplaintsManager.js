@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { getComplaintsAdmin, getFieldWorkers, updateComplaintStatusAdmin, assignComplaint } from '../../services/api';
+import { getComplaintsAdmin, assignComplaintAuto, updateComplaintStatusAdmin } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const ComplaintsManager = () => {
   const { user } = useAuth();
-  
+
   const [complaints, setComplaints] = useState([]);
-  const [fieldWorkers, setFieldWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [assigningId, setAssigningId] = useState(null);
+  const [showPriorityModal, setShowPriorityModal] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -15,26 +16,44 @@ const ComplaintsManager = () => {
 
   const fetchData = async () => {
     try {
-      const [compRes, fwRes] = await Promise.all([
-        getComplaintsAdmin(),
-        getFieldWorkers()
-      ]);
-      setComplaints(compRes.data.data || []);
-      setFieldWorkers(fwRes.data.data || []);
+      const res = await getComplaintsAdmin();
+      setComplaints(res.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch complaints/workers', err);
+      console.error('Failed to fetch complaints', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAssign = async (complaintId, workerId) => {
-    if (!workerId) return;
+  const handleAssignClick = (complaint) => {
+    setShowPriorityModal(complaint);
+  };
+
+  const handleAssignConfirm = async (priority) => {
+    if (!showPriorityModal) return;
+
+    setAssigningId(showPriorityModal.complaint_id);
+
     try {
-      await assignComplaint(complaintId, { assigned_to: workerId, assigned_by: user.userId });
+      const res = await assignComplaintAuto(showPriorityModal.complaint_id, {
+        priority,
+        assigned_by: user.userId
+      });
+
+      const data = res.data;
+      alert(
+        `Assigned: ${data.message}\n` +
+        `Region: ${data.data.region}\n` +
+        `Priority: ${priority}`
+      );
+
+      setShowPriorityModal(null);
       fetchData();
     } catch (err) {
-      alert('Failed to assign complaint');
+      const msg = err.response?.data?.error || err.message || 'Assignment failed';
+      alert(`Failed to assign: ${msg}`);
+    } finally {
+      setAssigningId(null);
     }
   };
 
@@ -58,26 +77,24 @@ const ComplaintsManager = () => {
   return (
     <div className="space-y-6">
       {/* Grain texture overlay */}
-      <div 
-        className="fixed inset-0 z-[1] pointer-events-none opacity-[0.04]" 
+      <div
+        className="fixed inset-0 z-[1] pointer-events-none opacity-[0.04]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`
         }}
       />
 
-      {/* Content */}
       <div className="relative z-10">
         {/* Header */}
         <div className="mb-6">
           <h2 className="font-outfit text-2xl font-semibold text-txt mb-2">Manage Complaints</h2>
-          <p className="font-outfit text-sm text-sub">Assign and resolve customer complaints</p>
+          <p className="font-outfit text-sm text-sub">Smart auto-assignment to field workers</p>
         </div>
 
         {/* Complaints Table Card */}
         <div className="bg-card border-0.5 border-white/[0.07] rounded-2xl overflow-hidden">
-          {/* Top accent stripe */}
           <div className="h-[1.5px] bg-elec/45 rounded-t-2xl" />
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-white/[0.07]">
@@ -87,6 +104,9 @@ const ComplaintsManager = () => {
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">
                     Consumer
+                  </th>
+                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">
+                    Region
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-sub">
                     Description
@@ -117,6 +137,9 @@ const ComplaintsManager = () => {
                       </div>
                       <div className="font-outfit text-xs text-sub">{c.consumer_phone}</div>
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="font-outfit text-sm text-txt">{c.region_name || '—'}</div>
+                    </td>
                     <td className="px-4 py-3 max-w-xs">
                       <div className="font-outfit text-sm text-txt line-clamp-2" title={c.description}>
                         {c.description}
@@ -130,7 +153,7 @@ const ComplaintsManager = () => {
                     <td className="px-4 py-3">
                       <span className={`
                         px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider
-                        ${c.status === 'Resolved' 
+                        ${c.status === 'Resolved'
                           ? 'bg-green-500/10 border border-green-500/40 text-green-400'
                           : c.status === 'In Progress'
                           ? 'bg-blue-500/10 border border-blue-500/40 text-blue-400'
@@ -141,40 +164,38 @@ const ComplaintsManager = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {c.status === 'Pending' ? (
-                        <select 
-                          onChange={(e) => handleAssign(c.complaint_id, e.target.value)}
-                          defaultValue=""
-                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-txt text-sm font-outfit focus:border-elec/40 focus:bg-white/[0.07] transition-all"
-                        >
-                          <option value="" disabled>Assign to...</option>
-                          {fieldWorkers.map(fw => (
-                            <option key={fw.person_id} value={fw.person_id}>
-                              {fw.first_name} {fw.last_name} ({fw.region_name || 'No Region'})
-                            </option>
-                          ))}
-                        </select>
+                      {c.assigned_to_name ? (
+                        <div className="font-outfit text-sm text-txt">{c.assigned_to_name}</div>
                       ) : (
-                        <div className="font-outfit text-sm text-txt">
-                          {c.assigned_to_name || 'N/A'}
-                        </div>
+                        <span className="font-outfit text-xs text-sub italic">Not assigned</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {c.status !== 'Resolved' && (
-                        <button 
-                          onClick={() => handleResolve(c.complaint_id)}
-                          className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium"
-                        >
-                          Mark Resolved
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {c.status === 'Pending' && (
+                          <button
+                            onClick={() => handleAssignClick(c)}
+                            disabled={assigningId === c.complaint_id}
+                            className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {assigningId === c.complaint_id ? 'Assigning...' : 'Auto-Assign'}
+                          </button>
+                        )}
+                        {c.status === 'In Progress' && (
+                          <button
+                            onClick={() => handleResolve(c.complaint_id)}
+                            className="px-4 py-2 bg-green-500/10 border border-green-500/40 text-green-400 rounded-lg hover:bg-green-500/20 transition-all font-outfit text-sm font-medium"
+                          >
+                            Mark Resolved
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {complaints.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center">
+                    <td colSpan="7" className="px-4 py-8 text-center">
                       <p className="font-outfit text-sub">No complaints found</p>
                     </td>
                   </tr>
@@ -183,6 +204,62 @@ const ComplaintsManager = () => {
             </table>
           </div>
         </div>
+
+        {/* Priority Selection Modal */}
+        {showPriorityModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-card border-0.5 border-white/[0.07] rounded-2xl max-w-md w-full">
+              <div className="h-[1.5px] bg-elec/45 rounded-t-2xl" />
+
+              <div className="p-6 border-b border-white/[0.07]">
+                <h3 className="font-outfit text-lg font-semibold text-txt">Select Priority</h3>
+                <p className="font-outfit text-xs text-sub mt-1">
+                  Complaint #{showPriorityModal.complaint_id}
+                  {showPriorityModal.region_name ? ` — ${showPriorityModal.region_name}` : ''}
+                </p>
+              </div>
+
+              <div className="p-6 space-y-3">
+                <button
+                  onClick={() => handleAssignConfirm('Urgent')}
+                  disabled={!!assigningId}
+                  className="w-full px-4 py-3 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all font-outfit text-sm font-medium text-left disabled:opacity-50"
+                >
+                  <div className="font-semibold">Urgent</div>
+                  <div className="text-xs mt-1 opacity-70">Assign to most productive worker</div>
+                </button>
+
+                <button
+                  onClick={() => handleAssignConfirm('Normal')}
+                  disabled={!!assigningId}
+                  className="w-full px-4 py-3 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium text-left disabled:opacity-50"
+                >
+                  <div className="font-semibold">Normal</div>
+                  <div className="text-xs mt-1 opacity-70">Assign to least loaded worker</div>
+                </button>
+
+                <button
+                  onClick={() => handleAssignConfirm('Low')}
+                  disabled={!!assigningId}
+                  className="w-full px-4 py-3 bg-blue-500/10 border border-blue-500/40 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-all font-outfit text-sm font-medium text-left disabled:opacity-50"
+                >
+                  <div className="font-semibold">Low</div>
+                  <div className="text-xs mt-1 opacity-70">Assign to least loaded worker</div>
+                </button>
+              </div>
+
+              <div className="p-6 border-t border-white/[0.07] flex justify-end">
+                <button
+                  onClick={() => setShowPriorityModal(null)}
+                  disabled={!!assigningId}
+                  className="px-4 py-2 bg-white/5 border border-white/10 text-txt rounded-lg hover:border-white/20 transition-all font-outfit text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
