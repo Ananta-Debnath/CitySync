@@ -146,41 +146,16 @@ ORDER BY m.month_start DESC;
 
 
 
-SELECT
-        p.person_id,
-        p.first_name,
-        p.last_name,
-        p.phone_number,
-        p.national_id,
-        p.date_of_birth,
-        p.gender,
-        a.email,
-        a.account_type   AS role,
-        a.created_at,
-        a.avatar_url,
-        c.consumer_type,
-        c.registration_date,
-        addr.house_num,
-        addr.street_name,
-        addr.landmark,
-        r.region_name,
-        r.postal_code,
-        -- Stats
-        (SELECT COUNT(*) FROM utility_connection uc WHERE uc.consumer_id = p.person_id)               AS total_connections,
-        (SELECT COUNT(*) FROM utility_connection uc
-          JOIN bill_document bd ON bd.connection_id = uc.connection_id
-          WHERE uc.consumer_id = p.person_id AND bd.bill_status NOT ILIKE 'CANCELLED')                                                          AS total_bills,
-        (SELECT COALESCE(SUM(bd.total_amount),0) FROM utility_connection uc
-          JOIN bill_document bd ON bd.connection_id = uc.connection_id
-          WHERE uc.consumer_id = p.person_id AND bd.bill_status = 'PAID')                              AS total_paid,
-        (SELECT COALESCE(SUM(bd.total_amount),0) FROM utility_connection uc
-          JOIN bill_document bd ON bd.connection_id = uc.connection_id
-          WHERE uc.consumer_id = p.person_id AND bd.bill_status ILIKE 'UNPAID')                        AS total_outstanding,
-        (SELECT COUNT(*) FROM complaint WHERE consumer_id = p.person_id)                               AS total_complaints,
-        (SELECT COUNT(*) FROM connection_application WHERE consumer_id = p.person_id)                  AS total_applications
-      FROM person p
-      JOIN account  a    ON a.person_id    = p.person_id
-      JOIN consumer c    ON c.person_id    = p.person_id
-      JOIN address  addr ON p.address_id   = addr.address_id
-      JOIN region   r    ON addr.region_id = r.region_id
-      WHERE p.person_id = 1 AND a.account_type ILIKE 'CONSUMER';
+SELECT c.complaint_id,
+             COALESCE(r.region_id, pr.region_id) AS region_id,
+             COALESCE(r.region_name, pr.region_name) AS region_name
+      FROM complaint c
+      LEFT JOIN utility_connection uc ON c.connection_id = uc.connection_id
+      LEFT JOIN meter m ON uc.meter_id = m.meter_id
+      LEFT JOIN address a ON m.address_id = a.address_id
+      LEFT JOIN region r ON a.region_id = r.region_id
+      -- fallback: consumer -> person -> address -> region
+      LEFT JOIN person p ON c.consumer_id = p.person_id
+      LEFT JOIN address pa ON p.address_id = pa.address_id
+      LEFT JOIN region pr ON pa.region_id = pr.region_id
+      WHERE c.complaint_id = 3

@@ -1,9 +1,11 @@
 FIX AI CONTEXT ISSUE  --Fixed
 FIX SOCKET THING
 DELETE PROFILE PIC ISSUE ---DONE
-DASHBOARD BILL INFO FIX
+DASHBOARD BILL INFO FIX  ---FIXED
 PASSWORD EYE ICON
 Forget Pass
+Edit Profile doesnt work
+Prevent same pass for employee and consumer
 
 AvatarContext api  ---DONE
 
@@ -25,6 +27,7 @@ Include connection name  ---DONE
 Status naming
 Each connection details  ---DONE   --Add tariff detail under a button
 Prepaid??  --DONE
+account balance will be red for less than zero
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
@@ -72,16 +75,17 @@ Fix related connection  ---DONE
 change pass text field eye disappear after reclicking text box  --DONE
 the admin only thing???
 Profile pic ---DONE
-move cloudinarything to backend??
+move cloudinarything to backend??   --NOT POSSIBLE
+current balance???
 
 
 
 -------------------EMPLOYEE------------------
 UNAVAILABLE PAGES
-reading
+reading  --DONE
 Operations
-Profile
-
+Profile  ---DONE
+have change button for change req ---DONE
 
 
 active conn count
@@ -93,7 +97,7 @@ approve readings
 Show details
 
 ---Region---
-Stylize
+Stylize  ---DONE
 
 ---Tariff---
 No edit on existing tariff, only new creations (fixed_charges can stay) no deletion either
@@ -101,13 +105,12 @@ add utility button
 allow tariff id in add tariff - same for slab
 
 ---Applcation---
-Have a approve_app in DASHBOARD
 Add filter
 
 ---Complaints---
 Show conn or general
-No choice of worker just assign (rest will be done in backend)
-
+No choice of worker just assign (rest will be done in backend) ---PARTLY DONE
+Revoke button
 
 
 -------------------WORKER------------------

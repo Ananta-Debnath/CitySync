@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getComplaintsAdmin, assignComplaintAuto, updateComplaintStatusAdmin } from '../../services/api';
+import { getComplaintsAdmin, assignComplaintAuto, updateComplaintStatusAdmin, approveComplaintChange } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const ComplaintsManager = () => {
@@ -63,6 +63,22 @@ const ComplaintsManager = () => {
       fetchData();
     } catch (err) {
       alert('Failed to resolve complaint');
+    }
+  };
+
+  const handleChange = async (id) => {
+    try {
+      const res = await approveComplaintChange(id);
+      if (res.data) {
+        alert('Change approved successfully.');
+        fetchData();
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const serverData = err.response?.data;
+      const serverMsg = serverData ? (serverData.error || JSON.stringify(serverData)) : err.message;
+      console.error('approveComplaintChange error:', err);
+      alert(`Failed to approve change${status ? ` (HTTP ${status})` : ''}.\n${serverMsg}`);
     }
   };
 
@@ -172,22 +188,31 @@ const ComplaintsManager = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        {c.status === 'Pending' && (
+                        {((c.description || '').trim().toUpperCase().startsWith('CHANGE REQUEST')) ? (
                           <button
-                            onClick={() => handleAssignClick(c)}
-                            disabled={assigningId === c.complaint_id}
-                            className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => handleChange(c.complaint_id)}
+                            className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/40 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-all font-outfit text-sm font-medium"
                           >
-                            {assigningId === c.complaint_id ? 'Assigning...' : 'Auto-Assign'}
+                            Change
                           </button>
-                        )}
-                        {c.status === 'In Progress' && (
-                          <button
-                            onClick={() => handleResolve(c.complaint_id)}
-                            className="px-4 py-2 bg-green-500/10 border border-green-500/40 text-green-400 rounded-lg hover:bg-green-500/20 transition-all font-outfit text-sm font-medium"
-                          >
-                            Mark Resolved
-                          </button>
+                        ) : (
+                          <>
+                            {c.status === 'Pending' && (
+                              <button
+                                onClick={() => handleAssignClick(c)}
+                                disabled={assigningId === c.complaint_id}
+                                className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {assigningId === c.complaint_id ? 'Assigning...' : 'Auto-Assign'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleResolve(c.complaint_id)}
+                              className="px-4 py-2 bg-green-500/10 border border-green-500/40 text-green-400 rounded-lg hover:bg-green-500/20 transition-all font-outfit text-sm font-medium"
+                            >
+                              Mark Resolved
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>

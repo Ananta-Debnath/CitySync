@@ -584,7 +584,8 @@ const getComplaints = async (req, res) => {
       LEFT JOIN meter m ON uc.meter_id = m.meter_id
       LEFT JOIN address a ON m.address_id = a.address_id
       LEFT JOIN region r ON a.region_id = r.region_id
-      ORDER BY comp.complaint_id DESC
+      WHERE comp.status NOT ILIKE 'Resolved'
+      ORDER BY comp.status DESC, comp.complaint_date DESC-- , comp.complaint_id DESC
     `);
     res.json({ count: result.rows.length, data: result.rows });
   } catch (err) {
@@ -598,14 +599,22 @@ const assignComplaintAuto = async (req, res) => {
   const assigned_by = req.user.person_id;
 
   try {
-    // Step 1: Get complaint region via connection → meter → address → region
+    // Step 1: Get complaint region.
+    // Prefer region from connection->meter->address; fall back to the
+    // complainant's person->address->region for general complaints.
     const complaintResult = await pool.query(`
-      SELECT c.complaint_id, r.region_id, r.region_name
+      SELECT c.complaint_id,
+             COALESCE(r.region_id, pr.region_id) AS region_id,
+             COALESCE(r.region_name, pr.region_name) AS region_name
       FROM complaint c
       LEFT JOIN utility_connection uc ON c.connection_id = uc.connection_id
       LEFT JOIN meter m ON uc.meter_id = m.meter_id
       LEFT JOIN address a ON m.address_id = a.address_id
       LEFT JOIN region r ON a.region_id = r.region_id
+      -- fallback: consumer -> person -> address -> region
+      LEFT JOIN person p ON c.consumer_id = p.person_id
+      LEFT JOIN address pa ON p.address_id = pa.address_id
+      LEFT JOIN region pr ON pa.region_id = pr.region_id
       WHERE c.complaint_id = $1
     `, [complaintId]);
 
@@ -616,7 +625,7 @@ const assignComplaintAuto = async (req, res) => {
     const { region_id, region_name } = complaintResult.rows[0];
 
     if (!region_id) {
-      return res.status(400).json({ error: 'Complaint has no region (no linked connection)' });
+      return res.status(400).json({ error: 'Complaint has no region (no linked connection or person address)' });
     }
 
     // Step 2: Find best field worker based on priority
@@ -716,6 +725,212 @@ const updateComplaintStatus = async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const approveComplaintChange = async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    const complaintResult = await client.query(
+      `SELECT complaint_id, consumer_id, description
+       FROM complaint
+       WHERE complaint_id = $1`,
+      [id]
+    );
+
+    if (complaintResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
+
+    const description = complaintResult.rows[0].description || '';
+    const match = description.match(
+      /^CHANGE REQUEST\s*-\s*(.*?);\s*Current:\s*(.*?);\s*Requested:\s*(.*?);\s*Reason:\s*(.*)$/i
+    );
+
+    if (!match) {
+      return res.status(400).json({ error: 'Complaint is not a valid change request format' });
+    }
+
+    const field = match[1]?.trim();
+    const requestValue = match[3]?.trim();
+    const fieldKey = field.toLowerCase();
+
+    if (!requestValue) {
+      return res.status(400).json({ error: 'Requested value is missing in complaint description' });
+    }
+
+    const consumerId = complaintResult.rows[0].consumer_id;
+    if (!consumerId) {
+      return res.status(400).json({ error: 'Complaint has no consumer linked' });
+    }
+
+    await client.query('BEGIN');
+
+    const personResult = await client.query(
+      `SELECT p.person_id, p.address_id
+       FROM consumer c
+       JOIN person p ON c.person_id = p.person_id
+       WHERE c.person_id = $1`,
+      [consumerId]
+    );
+
+    if (personResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Consumer profile not found' });
+    }
+
+    const { person_id, address_id } = personResult.rows[0];
+    let updateData = null;
+
+    if (fieldKey === 'email') {
+      const emailResult = await client.query(
+        `UPDATE account
+         SET email = $1
+         WHERE person_id = $2 AND account_type ILIKE 'Consumer'
+         RETURNING person_id, email`,
+        [requestValue, person_id]
+      );
+
+      if (emailResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Account not found for consumer' });
+      }
+
+      updateData = { type: 'email', data: emailResult.rows[0] };
+    } else if (fieldKey === 'address') {
+      if (!address_id) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Consumer has no address linked' });
+      }
+
+      const parts = requestValue.split(',').map((s) => s.trim());
+      if (parts.length < 2) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Address must be formatted as house_num, street_name, landmark' });
+      }
+
+      const house_num = parts[0];
+      const street_name = parts[1];
+      const landmark = parts.slice(2).join(', ') || null;
+
+      const addressResult = await client.query(
+        `UPDATE address
+         SET house_num = $1,
+             street_name = $2,
+             landmark = $3
+         WHERE address_id = $4
+         RETURNING address_id, house_num, street_name, landmark, region_id`,
+        [house_num, street_name, landmark, address_id]
+      );
+
+      if (addressResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Address record not found' });
+      }
+
+      updateData = { type: 'address', data: addressResult.rows[0] };
+    } else if (fieldKey === 'region') {
+      if (!address_id) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Consumer has no address linked' });
+      }
+
+      const parts = requestValue.split(',').map((s) => s.trim());
+      if (parts.length < 2) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Region must be formatted as region_name, postal_code' });
+      }
+
+      const region_name = parts[0];
+      const postal_code = parts.slice(1).join(', ').trim();
+
+      const regionResult = await client.query(
+        `SELECT region_id, region_name, postal_code
+         FROM region
+         WHERE LOWER(TRIM(region_name)) = LOWER(TRIM($1))
+           AND TRIM(postal_code) = TRIM($2)
+         LIMIT 1`,
+        [region_name, postal_code]
+      );
+
+      if (regionResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Requested region not found' });
+      }
+
+      const selectedRegion = regionResult.rows[0];
+
+      const addressRes = await client.query(
+        `INSERT INTO address (house_num, street_name, landmark, region_id)
+         SELECT house_num, street_name, landmark, $1
+         FROM address
+         WHERE address_id = $2
+         RETURNING address_id`,
+        [selectedRegion.region_id, address_id]
+      );
+
+      const newAddressId = addressRes.rows[0].address_id;
+
+      console.log('New address created with ID:', newAddressId, "for person:", person_id);
+      const personUpdateResult = await client.query(
+        `UPDATE person SET address_id = $1 WHERE person_id = $2
+         RETURNING person_id`,
+        [newAddressId, person_id]
+      );
+
+      if (personUpdateResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Person not found' });
+      }
+
+      updateData = {
+        type: 'region',
+        data: {
+          ...personUpdateResult.rows[0],
+          region_name: selectedRegion.region_name,
+          postal_code: selectedRegion.postal_code
+        }
+      };
+    } else {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Unsupported change field: ${field}` });
+    }
+
+    await client.query(
+      `UPDATE complaint
+       SET status = 'Resolved',
+           resolution_date = CURRENT_DATE,
+           remarks = CASE
+             WHEN remarks IS NULL OR remarks = '' THEN 'Change request approved and applied'
+             ELSE remarks || ' | Change request approved and applied'
+           END
+       WHERE complaint_id = $1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      message: 'Complaint change approved and applied',
+      complaint_id: complaintResult.rows[0].complaint_id,
+      parsed_change: {
+        field,
+        request_value: requestValue
+      },
+      applied_update: updateData
+    });
+
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Rollback failed:', rollbackErr);
+    }
+    console.error('approveComplaintChange error:', err);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
   }
 };
 
@@ -1145,6 +1360,7 @@ module.exports = {
   assignComplaint,
   assignComplaintAuto,
   updateComplaintStatus,
+  approveComplaintChange,
   getBills,
   generateBill,
   updateBillStatus,

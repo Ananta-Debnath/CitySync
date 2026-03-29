@@ -43,7 +43,7 @@ const METHOD_TYPES = {
 const methodSubtitle = (m) => {
   if (m.bank_name)            return `${m.bank_name} ···· ${m.account_num?.slice(-4)}`;
   if (m.provider_name)        return `${m.provider_name} · ${m.mb_phone}`;
-  if (m.google_account_email) return m.google_account_email;
+  if (m.email)                return m.email;
   return '';
 };
 

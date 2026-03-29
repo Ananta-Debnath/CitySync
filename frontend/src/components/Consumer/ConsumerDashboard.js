@@ -265,7 +265,7 @@ const ConsumerDashboard = () => {
         <div className="flex gap-[9px] h-[252px]">
           <BentoCard 
             tag="latest bill"
-            value={`৳ ${latestBill.total_amount}`}
+            value={`৳ ${latestBill.amount}`}
             sub={latestBill.bill_status === 'PAID' ? 'Paid' : 'Unpaid'}
             subColor={latestBill.bill_status === 'PAID' ? '#44ff99' : '#ff4444'}
             bgImage="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&q=75"

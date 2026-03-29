@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAvatar } from '../context/AvatarContext';
-import { getConsumerProfile, getAdminProfile, getFieldworkerProfile, updateAvatar, deleteAvatar, changePassword, deactivateConsumerAccount } from '../services/api';
+import { getConsumerProfile, getAdminProfile, getFieldworkerProfile, updateAvatar, deleteAvatar, changePassword, deactivateConsumerAccount, createComplaint } from '../services/api';
 
 // const API_BASE = {
 //   consumer:     '/api/consumer',
@@ -73,7 +73,7 @@ const StatPill = ({ label, value, colorClass = 'elec' }) => (
 );
 
 const Profile = () => {
-  const { authFetch, logout, user } = useAuth();
+  const { logout, user } = useAuth();
   const { setAvatar: setGlobalAvatar } = useAvatar();
   const navigate = useNavigate();
 
@@ -94,6 +94,8 @@ const Profile = () => {
   const [pwdForm, setPwdForm]           = useState({ current: '', next: '', confirm: '', error: '', loading: false });
   const [deactivateForm, setDeactivateForm] = useState({ password: '', error: '', loading: false });
   const [requestValue, setRequestValue] = useState('');
+  const [reasonValue, setReasonValue] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -201,6 +203,34 @@ const Profile = () => {
       setTimeout(() => logout(), 1800);
     } catch (err) {
       setDeactivateForm(f => ({ ...f, error: err.message, loading: false }));
+    }
+  };
+
+  const submitProfileChangeRequest = async () => {
+    if (!requestField) return;
+    if (!requestValue.trim()) {
+      showToast('Please enter the requested value.');
+      return;
+    }
+    if (!reasonValue.trim()) {
+      showToast('Please enter a reason for this change.');
+      return;
+    }
+
+    const message = `CHANGE REQUEST - ${requestField.field}; Current: ${requestField.currentValue}; Requested: ${requestValue.trim()}; Reason: ${reasonValue.trim()}`;
+
+    setRequestSubmitting(true);
+    try {
+      await createComplaint({ connection_id: null, description: message });
+      setRequestField(null);
+      setRequestValue('');
+      setReasonValue('');
+      showToast('Change request submitted!');
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Failed to submit change request';
+      showToast(msg);
+    } finally {
+      setRequestSubmitting(false);
     }
   };
 
@@ -630,19 +660,31 @@ const Profile = () => {
                     className="w-full bg-white/5 border border-white/10 rounded-xl p-4 font-outfit text-sm text-txt outline-none focus:border-elec/40 transition-all placeholder:text-sub"
                   />
                 </div>
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-elec mb-2 block">Reason</label>
+                  <textarea
+                    rows="2"
+                    placeholder="Why do you want this change?"
+                    value={reasonValue}
+                    onChange={e => setReasonValue(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 font-outfit text-sm text-txt outline-none focus:border-elec/40 transition-all placeholder:text-sub"
+                  />
+                </div>
               </div>
               <div className="p-6 border-t border-white/[0.07] flex justify-end gap-3">
                 <button
-                  onClick={() => { setRequestField(null); setRequestValue(''); }}
+                  onClick={() => { setRequestField(null); setRequestValue(''); setReasonValue(''); }}
+                  disabled={requestSubmitting}
                   className="px-4 py-2 bg-white/5 border border-white/10 text-txt rounded-lg hover:border-white/20 transition-all font-outfit text-sm"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => { setRequestField(null); setRequestValue(''); showToast('Change request submitted!'); }}
-                  className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium"
+                  onClick={submitProfileChangeRequest}
+                  disabled={requestSubmitting}
+                  className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Request
+                  {requestSubmitting ? 'Sending...' : 'Send Request'}
                 </button>
               </div>
             </div>

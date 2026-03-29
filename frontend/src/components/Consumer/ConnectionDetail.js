@@ -188,7 +188,17 @@ const ConnectionDetail = () => {
                   <InfoRow label="Account ID" value={connection.prepaid_account_id ? `#${connection.prepaid_account_id}` : '-'} t={t} mono />
 
                   <div style={{ marginTop:6, textAlign:'center' }}>
-                    <div style={{ fontSize:28, color:t.text, fontWeight:800, fontFamily:fonts.mono }}>{typeof connection.prepaid_balance !== 'undefined' && connection.prepaid_balance !== null ? `৳${parseFloat(connection.prepaid_balance).toFixed(2)}` : '-'}</div>
+                    <div style={{
+                      fontSize: 28,
+                      color: (typeof connection.prepaid_balance !== 'undefined' && connection.prepaid_balance !== null && parseFloat(connection.prepaid_balance) < 0) ? '#F87171' : t.text,
+                      fontWeight: 800,
+                      fontFamily: fonts.mono
+                    }}>
+                      {typeof connection.prepaid_balance !== 'undefined' && connection.prepaid_balance !== null
+                        ? `৳${parseFloat(connection.prepaid_balance).toFixed(2)}`
+                        : '-'
+                      }
+                    </div>
                     <div style={{ fontSize:12, color:t.textSub, marginTop:4 }}>Balance</div>
                   </div>
 
