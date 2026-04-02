@@ -7,6 +7,18 @@
 -- Payment -> Update bill/balance --- DONE
 -- Usage -> Update balance -- DONE
 
+-- ── VAT / Tariff Migration (run on existing databases) ───────────────────────
+ALTER TABLE TARIFF
+    ADD COLUMN IF NOT EXISTS VAT_RATE NUMERIC(5,2) DEFAULT 5.00,
+    ADD COLUMN IF NOT EXISTS IS_VAT_EXEMPT BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE BILL_DOCUMENT
+    ADD COLUMN IF NOT EXISTS SUBTOTAL NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS VAT_RATE NUMERIC(5,2) DEFAULT 0.00,
+    ADD COLUMN IF NOT EXISTS VAT_AMOUNT NUMERIC(10,2) DEFAULT 0.00,
+    ADD COLUMN IF NOT EXISTS IS_VAT_EXEMPT BOOLEAN DEFAULT FALSE;
+-- ─────────────────────────────────────────────────────────────────────────────
+
 
 
 -- FUNCTIONS

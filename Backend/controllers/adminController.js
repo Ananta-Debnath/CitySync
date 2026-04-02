@@ -225,7 +225,9 @@ const createTariff = async (req, res) => {
     billing_method,
     effective_from,
     effective_to,
-    is_active
+    is_active,
+    vat_rate,
+    is_vat_exempt
   } = req.body;
 
   if (!tariff_name || !utility_id || !consumer_category || !billing_method || !effective_from) {
@@ -234,11 +236,29 @@ const createTariff = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO tariff (tariff_name, utility_id, consumer_category, billing_method, effective_from, effective_to, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [tariff_name, utility_id, consumer_category, billing_method, effective_from, effective_to || null, is_active ?? true]
+      `INSERT INTO tariff (tariff_name, utility_id, consumer_category, billing_method, effective_from, effective_to, is_active, vat_rate, is_vat_exempt)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [tariff_name, utility_id, consumer_category, billing_method, effective_from, effective_to || null, is_active ?? true, vat_rate ?? 5.00, is_vat_exempt ?? false]
     );
     res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const deactivateTariff = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `UPDATE tariff
+       SET is_active = false,
+           effective_to = CURRENT_DATE
+       WHERE tariff_id = $1 RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Tariff not found' });
+    res.json({ success: true, message: 'Tariff deactivated', data: result.rows[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -1019,13 +1039,23 @@ const generateBill = async (req, res) => {
     const fixed_total = parseFloat(fcResult.rows[0].fixed_total) || 0;
     const charge_ids = fcResult.rows[0].charge_ids || [];
 
-    const total_amount = energy_amount + fixed_total;
+    const vatResult = await client.query(
+      `SELECT COALESCE(vat_rate, 0) AS vat_rate, COALESCE(is_vat_exempt, false) AS is_vat_exempt
+       FROM tariff WHERE tariff_id = $1`,
+      [tariff_id]
+    );
+    const tariff_vat_rate = parseFloat(vatResult.rows[0]?.vat_rate) || 0;
+    const is_vat_exempt = vatResult.rows[0]?.is_vat_exempt ?? false;
+
+    const subtotal = energy_amount + fixed_total;
+    const vat_amount = is_vat_exempt ? 0 : parseFloat((subtotal * tariff_vat_rate / 100).toFixed(2));
+    const total_amount = subtotal + vat_amount;
 
     const billResult = await client.query(
-      `INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, total_amount, bill_status)
-      VALUES ($1, 'POSTPAID', $2, $3, $4, 'UNPAID')
+      `INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, subtotal, vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
+      VALUES ($1, 'POSTPAID', $2, $3, $4, $5, $6, $7, $8, 'UNPAID')
       RETURNING bill_document_id`,
-      [connection_id, unit_consumed, energy_amount, total_amount]
+      [connection_id, unit_consumed, energy_amount, subtotal, tariff_vat_rate, vat_amount, is_vat_exempt, total_amount]
     );
     const bill_document_id = billResult.rows[0].bill_document_id;
 
@@ -1051,6 +1081,10 @@ const generateBill = async (req, res) => {
       unit_consumed,
       energy_amount,
       fixed_charges: fixed_total,
+      subtotal,
+      vat_rate: tariff_vat_rate,
+      vat_amount,
+      is_vat_exempt,
       total_amount
     });
   } catch (err) {
@@ -1342,6 +1376,7 @@ module.exports = {
   getTariffs,
   createTariff,
   updateTariff,
+  deactivateTariff,
   getTariffSlabs,
   createTariffSlab,
   updateTariffSlab,

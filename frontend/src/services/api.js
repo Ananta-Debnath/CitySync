@@ -62,9 +62,10 @@ export const createMeter  = (data) => api.post('/admin/meters', data);          
 export const getUtilities = () => api.get('/admin/utilities');                                      // NEW
 
 // ── Tariffs ────────────────────────────────────────────────────────
-export const getTariffs   = ()         => api.get('/admin/tariffs');
-export const createTariff = (data)     => api.post('/admin/tariffs', data);                         // NEW
-export const updateTariff = (id, data) => api.put(`/admin/tariffs/${id}`, data);                    // NEW
+export const getTariffs       = ()         => api.get('/admin/tariffs');
+export const createTariff     = (data)     => api.post('/admin/tariffs', data);
+export const updateTariff     = (id, data) => api.put(`/admin/tariffs/${id}`, data);
+export const deactivateTariff = (id)       => api.put(`/admin/tariffs/${id}/deactivate`);
 
 // ── Tariff Slabs ───────────────────────────────────────────────────
 export const getTariffSlabs   = (tariffId)                => api.get(`/admin/tariffs/${tariffId}/slabs`);                           // NEW

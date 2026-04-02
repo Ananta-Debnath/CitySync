@@ -31,6 +31,7 @@ router.get('/field-workers', adminController.getFieldWorkers);
 // Tariffs
 router.get('/tariffs', adminController.getTariffs);
 router.post('/tariffs', adminController.createTariff);
+router.put('/tariffs/:id/deactivate', adminController.deactivateTariff);
 router.put('/tariffs/:id', adminController.updateTariff);
 
 // Tariff slabs

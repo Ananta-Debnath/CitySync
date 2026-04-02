@@ -170,7 +170,23 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
           ))
         )}
         <Row label="Energy cost" value={`৳ ${parseFloat(bill.energy_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
-        <Row label="Gross amount" value={`৳ ${parseFloat(bill.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
+        {bill.subtotal != null && (
+          <Row label="Subtotal" value={`৳ ${parseFloat(bill.subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
+        )}
+        {bill.is_vat_exempt ? (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 0', borderBottom:`1px solid ${t.border}` }}>
+            <span style={{ fontSize:13, color:t.textSub }}>VAT</span>
+            <span style={{ fontSize:13, fontWeight:600, color: '#FBBF24', fontFamily:'IBM Plex Mono, monospace' }}>EXEMPT</span>
+          </div>
+        ) : bill.vat_amount > 0 && (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 0', borderBottom:`1px solid ${t.border}` }}>
+            <span style={{ fontSize:13, color:t.textSub }}>VAT ({bill.vat_rate}%)</span>
+            <span style={{ fontSize:13, fontWeight:500, color:'#CCFF00', fontFamily:'IBM Plex Mono, monospace' }}>
+              + ৳ {parseFloat(bill.vat_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
+        <Row label="Total amount" value={`৳ ${parseFloat(bill.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} t={t} />
         {isPostpaid && bill.remarks && <Row label="Remarks" value={bill.remarks} t={t} />}
       </div>
 
