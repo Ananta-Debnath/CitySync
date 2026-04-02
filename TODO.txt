@@ -100,11 +100,11 @@ Show details
 Stylize  ---DONE
 
 ---Tariff---
-No edit on existing tariff, only new creations (fixed_charges can stay) no deletion either
+No edit on existing tariff, only new creations (fixed_charges can stay) no deletion either--DONE
 add utility button
 allow tariff id in add tariff - same for slab
 
----Applcation---
+---Application---
 Add filter
 
 ---Complaints---
@@ -112,8 +112,14 @@ Show conn or general
 No choice of worker just assign (rest will be done in backend) ---PARTLY DONE
 Revoke button
 
+--analytics---
+replace mock data with real data
+edit connection availability region wise
 
 -------------------WORKER------------------
 
 log reading doesnt genereate usage immediately --DONE
 tariff details in log
+
+--MISC--
+notification
