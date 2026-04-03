@@ -1,8 +1,9 @@
 FIX AI CONTEXT ISSUE  --Fixed
-FIX SOCKET THING
+FIX SOCKET THING -- MEDIUM PRIORITY
 DELETE PROFILE PIC ISSUE ---DONE
 DASHBOARD BILL INFO FIX  ---FIXED
 PASSWORD EYE ICON
+SHOW PASSWORD FOR LOGIN PAGE
 Forget Pass
 Edit Profile doesnt work
 Prevent same pass for employee and consumer
@@ -20,14 +21,14 @@ postal code needed?? ---DONE
 ---DASHBOARD---
 Include connection name   ---DONE
 Active??   ---DONE
-Usage table??
+bills showing unpaid?---
 
 ---CONNECTIONS---
 Include connection name  ---DONE
-Status naming
+Status naming--done
 Each connection details  ---DONE   --Add tariff detail under a button
 Prepaid??  --DONE
-account balance will be red for less than zero
+account balance will be red for less than zero--done
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
@@ -44,11 +45,11 @@ due and paid alternate  ---DONE
 Add more details
 fixed charge       ---DONE
 address     ---DONE
-Download PDF
+Download PDF--cancelled
 
 ---PAYMENTS---
 GPay - show email??  --DONE
-prevent duplicate entry
+prevent duplicate entry..........
 history -> click should show details of bill    ---DONE
 
 ---USAGE---
@@ -57,9 +58,9 @@ total meter reads is excessive??   ---FIXED
 graph text font size too much  ---FIXED
 bar chart y axis  ---DONE
 Move graphs side by side?  ---REVOKED
-Have day mode in line graph??  
+Have day mode in line graph?? --NO 
 Have delay in fetching data. --optional
-MINOR ISSUE WITH BAR CHART
+MINOR ISSUE WITH BAR CHART.....LOW PRIORITY
 
 ---APPLICATION---
 address typing glitch ---DONE
@@ -76,14 +77,14 @@ change pass text field eye disappear after reclicking text box  --DONE
 the admin only thing???
 Profile pic ---DONE
 move cloudinarything to backend??   --NOT POSSIBLE
-current balance???
+current balance???????????
 
 
 
 -------------------EMPLOYEE------------------
 UNAVAILABLE PAGES
 reading  --DONE
-Operations
+
 Profile  ---DONE
 have change button for change req ---DONE
 

@@ -11,12 +11,14 @@ const getPerson = async (req, res) => {
         a.landmark,
         a.region_id,
         r.region_name,
-        r.postal_code
+        r.postal_code,
+        ac.avatar_url
       FROM person p
       JOIN address a ON p.address_id = a.address_id
       JOIN region r ON a.region_id = r.region_id
-      WHERE person_id = $1
-    `, [req.user.person_id]);
+      LEFT JOIN account ac ON ac.person_id = p.person_id AND ac.account_type ILIKE $2
+      WHERE p.person_id = $1
+    `, [req.user.person_id, req.user.role]);
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

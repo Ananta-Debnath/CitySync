@@ -12,8 +12,16 @@ router.get('/tables', adminController.getTables);
 
 // Regions
 router.post('/regions', adminController.createRegion);
+router.put('/regions/:id/capacity', adminController.updateRegionCapacity);
+router.get('/regions/:id/utilities', adminController.getRegionUtilities);
+router.put('/regions/:id/utilities/:utilityId', adminController.updateRegionUtilityAvailability);
 router.put('/regions/:id', adminController.updateRegion);
 router.delete('/regions/:id', adminController.deleteRegion);
+
+// Analytics
+router.get('/analytics/revenue', adminController.getRevenueAnalytics);
+router.get('/analytics/workers', adminController.getWorkerAnalytics);
+router.get('/analytics/regions', adminController.getRegionalAnalytics);
 
 // Read-only lookups
 router.get('/addresses', adminController.getAddresses);

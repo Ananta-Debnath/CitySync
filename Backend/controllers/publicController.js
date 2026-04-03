@@ -13,8 +13,61 @@ const testDb = async (req, res) => {
 
 const getRegions = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM REGION");
+    const result = await pool.query(`
+      SELECT
+        r.*,
+        COUNT(CASE WHEN uc.connection_status IN ('Active','Pending') THEN uc.connection_id END) AS current_connections
+      FROM region r
+      LEFT JOIN address  a  ON r.region_id   = a.region_id
+      LEFT JOIN meter    m  ON a.address_id  = m.address_id
+      LEFT JOIN utility_connection uc ON m.meter_id = uc.meter_id
+      GROUP BY r.region_id
+      ORDER BY r.region_name
+    `);
     res.json({ count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Database error");
+  }
+};
+
+const getRegionAvailability = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        r.region_id,
+        r.region_name,
+        COALESCE(r.max_connections, 1000)         AS max_connections,
+        COALESCE(r.is_accepting_connections, TRUE) AS is_accepting_connections,
+        COALESCE(r.capacity_note, '')              AS capacity_note,
+        COUNT(CASE WHEN uc.connection_status IN ('Active','Pending') THEN uc.connection_id END) AS current_connections
+      FROM region r
+      LEFT JOIN address  a  ON r.region_id   = a.region_id
+      LEFT JOIN meter    m  ON a.address_id  = m.address_id
+      LEFT JOIN utility_connection uc ON m.meter_id = uc.meter_id
+      WHERE r.region_id = $1
+      GROUP BY r.region_id
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Region not found' });
+
+    const r = result.rows[0];
+    const pct = r.max_connections > 0
+      ? Math.round((r.current_connections / r.max_connections) * 100)
+      : 0;
+    const isOverloaded = pct >= 90;
+    const isClosed = !r.is_accepting_connections;
+
+    res.json({
+      ...r,
+      capacity_pct: pct,
+      is_overloaded: isOverloaded,
+      warning: isClosed
+        ? (r.capacity_note || 'This region is not accepting new connections.')
+        : isOverloaded
+          ? 'This region is currently overloaded. Your connection may not get approved.'
+          : null,
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Database error");
@@ -76,5 +129,6 @@ module.exports = {
   getAllAddresses,
   getBankNames,
   getProviders,
-  getUtilityNames
+  getUtilityNames,
+  getRegionAvailability,
 };

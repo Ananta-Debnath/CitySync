@@ -661,6 +661,24 @@ $$;
 
 
 
+CREATE OR REPLACE FUNCTION get_region_utility_connection_count(p_region_id INTEGER, p_utility_id INTEGER)
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(uc.connection_id)
+        FROM utility_connection uc
+        JOIN meter m ON uc.meter_id = m.meter_id
+        JOIN address a ON m.address_id = a.address_id
+        JOIN tariff t ON uc.tariff_id = t.tariff_id
+        WHERE a.region_id = p_region_id
+          AND t.utility_id = p_utility_id
+    );
+END;
+$$;
+
+
 --------VIEWS----------
 --  Create the field worker stats view used by auto-assignment
 CREATE OR REPLACE VIEW field_worker_stats AS

@@ -1,43 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Map, MapPin, Zap, Droplet, Flame, AlertCircle, Clock } from 'lucide-react';
+import { MapPin, Zap, Droplet, Flame, AlertCircle, Clock } from 'lucide-react';
+import { getRegionalAnalytics } from '../../../services/api';
+import Tooltip from './Tooltip';
 
 const grain = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const TABS       = ['revenue', 'productivity', 'regions'];
 const TAB_LABELS = { revenue: 'Revenue', productivity: 'Productivity', regions: 'Regions' };
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const regions = [
-  { id: 1, name: 'Motijheel',    electricity: 1234, water: 892,  gas: 345, status: 'Available',  pending: 12, complaints: 3  },
-  { id: 2, name: 'Gulshan',      electricity: 1567, water: 1234, gas: 0,   status: 'Limited',    pending: 15, complaints: 7  },
-  { id: 3, name: 'Dhanmondi',    electricity: 2103, water: 1876, gas: 542, status: 'Overloaded',  pending: 28, complaints: 14 },
-  { id: 4, name: 'Mirpur',       electricity: 987,  water: 765,  gas: 234, status: 'Available',  pending: 6,  complaints: 2  },
-  { id: 5, name: 'Uttara',       electricity: 1345, water: 1120, gas: 0,   status: 'Limited',    pending: 18, complaints: 9  },
-  { id: 6, name: 'Mohammadpur',  electricity: 876,  water: 654,  gas: 321, status: 'Available',  pending: 8,  complaints: 4  },
-  { id: 7, name: 'Tejgaon',      electricity: 1780, water: 1320, gas: 890, status: 'Overloaded',  pending: 34, complaints: 19 },
-  { id: 8, name: 'Banani',       electricity: 1102, water: 890,  gas: 210, status: 'Available',  pending: 9,  complaints: 5  },
-  { id: 9, name: 'Rampura',      electricity: 643,  water: 512,  gas: 0,   status: 'Available',  pending: 4,  complaints: 1  },
-];
-
 const statusCfg = {
   Available:  { color: '#44ff99', bg: 'rgba(68,255,153,0.08)',  stripe: '#44ff99' },
   Limited:    { color: '#FF9900', bg: 'rgba(255,153,0,0.08)',   stripe: '#FF9900' },
   Overloaded: { color: '#FF5757', bg: 'rgba(255,87,87,0.08)',   stripe: '#FF5757' },
+  Closed:     { color: '#888888', bg: 'rgba(136,136,136,0.08)', stripe: '#888888' },
 };
 
-const fmtNum = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+const fmtNum = (n) => Number(n) >= 1000 ? `${(Number(n) / 1000).toFixed(1)}k` : String(Number(n) || 0);
 
-// ─── Region Card ─────────────────────────────────────────────────────────────
 const RegionCard = ({ region, onClick }) => {
   const cfg = statusCfg[region.status] || statusCfg.Available;
+  const capPct = region.capacity_pct || 0;
 
   return (
     <div
       onClick={onClick}
       className="bg-card border-0.5 border-white/[0.07] rounded-2xl overflow-hidden cursor-pointer hover:border-white/[0.12] transition-all hover:scale-[1.01] animate-fade-in group"
     >
-      {/* Status stripe */}
       <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${cfg.stripe}, ${cfg.stripe}60, transparent)` }} />
 
       <div className="p-5">
@@ -49,7 +38,7 @@ const RegionCard = ({ region, onClick }) => {
             </div>
             <div>
               <div className="font-outfit text-sm font-semibold text-txt leading-none">{region.name}</div>
-              <div className="font-mono text-[9px] text-muted mt-0.5 uppercase tracking-wider">Region</div>
+              <div className="font-mono text-[9px] text-muted mt-0.5 uppercase tracking-wider">{region.postal_code}</div>
             </div>
           </div>
           <span
@@ -58,6 +47,24 @@ const RegionCard = ({ region, onClick }) => {
           >
             {region.status}
           </span>
+        </div>
+
+        {/* Capacity bar */}
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-1">
+            <Tooltip text="Current active+pending connections vs the configured max capacity for this region">
+              <span className="font-mono text-[8px] text-muted uppercase tracking-wider">Capacity</span>
+            </Tooltip>
+            <span className="font-mono text-[9px]" style={{ color: cfg.color }}>
+              {region.current_connections}/{region.max_connections}
+            </span>
+          </div>
+          <div className="h-1 w-full rounded-full bg-white/[0.05] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${Math.min(capPct, 100)}%`, background: cfg.stripe, opacity: 0.7 }}
+            />
+          </div>
         </div>
 
         {/* Connection counts */}
@@ -74,8 +81,8 @@ const RegionCard = ({ region, onClick }) => {
           </div>
           <div className="flex flex-col items-center gap-1 bg-white/[0.03] rounded-xl p-2.5">
             <Flame size={12} className="text-gas" />
-            <span className="font-barlow text-base font-bold" style={{ color: region.gas === 0 ? 'rgba(232,232,232,0.2)' : '#E8E8E8' }}>
-              {region.gas === 0 ? '—' : fmtNum(region.gas)}
+            <span className="font-barlow text-base font-bold" style={{ color: Number(region.gas) === 0 ? 'rgba(232,232,232,0.2)' : '#E8E8E8' }}>
+              {Number(region.gas) === 0 ? '—' : fmtNum(region.gas)}
             </span>
             <span className="font-mono text-[8px] text-muted uppercase tracking-wider">Gas</span>
           </div>
@@ -85,15 +92,19 @@ const RegionCard = ({ region, onClick }) => {
         <div className="flex gap-3">
           <div className="flex-1 flex items-center gap-2 bg-white/[0.03] rounded-lg px-3 py-2">
             <Clock size={11} className="text-status-warning flex-shrink-0" />
-            <span className="font-mono text-[9px] text-muted flex-1">Pending</span>
-            <span className="font-barlow text-sm font-bold" style={{ color: region.pending > 20 ? '#FF9900' : '#E8E8E8' }}>
+            <Tooltip text="Pending new connection requests in this region">
+              <span className="font-mono text-[9px] text-muted flex-1">Pending</span>
+            </Tooltip>
+            <span className="font-barlow text-sm font-bold" style={{ color: Number(region.pending) > 20 ? '#FF9900' : '#E8E8E8' }}>
               {region.pending}
             </span>
           </div>
           <div className="flex-1 flex items-center gap-2 bg-white/[0.03] rounded-lg px-3 py-2">
             <AlertCircle size={11} className="text-status-error flex-shrink-0" />
-            <span className="font-mono text-[9px] text-muted flex-1">Open</span>
-            <span className="font-barlow text-sm font-bold" style={{ color: region.complaints > 10 ? '#FF5757' : '#E8E8E8' }}>
+            <Tooltip text="Open (unresolved) complaints in this region">
+              <span className="font-mono text-[9px] text-muted flex-1">Open</span>
+            </Tooltip>
+            <span className="font-barlow text-sm font-bold" style={{ color: Number(region.complaints) > 10 ? '#FF5757' : '#E8E8E8' }}>
               {region.complaints}
             </span>
           </div>
@@ -103,16 +114,23 @@ const RegionCard = ({ region, onClick }) => {
   );
 };
 
-// ─── Summary bar ─────────────────────────────────────────────────────────────
-const counts = {
-  available:  regions.filter(r => r.status === 'Available').length,
-  limited:    regions.filter(r => r.status === 'Limited').length,
-  overloaded: regions.filter(r => r.status === 'Overloaded').length,
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
 const RegionalHeatmap = () => {
   const navigate = useNavigate();
+  const [regions, setRegions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getRegionalAnalytics()
+      .then(res => setRegions(res.data.regions || []))
+      .catch(err => console.error('Regional analytics:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const counts = {
+    available:  regions.filter(r => r.status === 'Available').length,
+    limited:    regions.filter(r => r.status === 'Limited').length,
+    overloaded: regions.filter(r => r.status === 'Overloaded' || r.status === 'Closed').length,
+  };
 
   return (
     <div className="relative">
@@ -139,49 +157,74 @@ const RegionalHeatmap = () => {
           </div>
         </div>
 
-        {/* Status summary */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'Available',  count: counts.available,  color: '#44ff99' },
-            { label: 'Limited',    count: counts.limited,    color: '#FF9900' },
-            { label: 'Overloaded', count: counts.overloaded, color: '#FF5757' },
-          ].map(({ label, count, color }) => (
-            <div key={label} className="bg-card border-0.5 border-white/[0.07] rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-2 h-8 rounded-full" style={{ background: color, opacity: 0.7 }} />
-              <div>
-                <div className="font-barlow text-2xl font-bold text-txt leading-none">{count}</div>
-                <div className="font-mono text-[9px] uppercase tracking-wider text-muted mt-0.5">{label}</div>
+        {loading ? (
+          <div className="space-y-4 animate-pulse">
+            <div className="grid grid-cols-3 gap-4">
+              {[1,2,3].map(i => <div key={i} className="h-20 bg-card border-0.5 border-white/[0.07] rounded-2xl" />)}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-56 bg-card border-0.5 border-white/[0.07] rounded-2xl" />)}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Status summary */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: 'Available',        count: counts.available,  color: '#44ff99',
+                  tooltip: 'Regions with capacity below 70% and accepting connections' },
+                { label: 'Limited',          count: counts.limited,    color: '#FF9900',
+                  tooltip: 'Regions at 70–89% capacity — connections may be slow to process' },
+                { label: 'Overloaded/Closed', count: counts.overloaded, color: '#FF5757',
+                  tooltip: 'Regions at ≥90% capacity or manually closed to new connections' },
+              ].map(({ label, count, color, tooltip }) => (
+                <div key={label} className="bg-card border-0.5 border-white/[0.07] rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-2 h-8 rounded-full" style={{ background: color, opacity: 0.7 }} />
+                  <div>
+                    <div className="font-barlow text-2xl font-bold text-txt leading-none">{count}</div>
+                    <Tooltip text={tooltip}>
+                      <div className="font-mono text-[9px] uppercase tracking-wider text-muted mt-0.5">{label}</div>
+                    </Tooltip>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Overview stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Regions',     value: regions.length,                                                   tooltip: 'Total number of service regions' },
+                { label: 'Elec Connections',  value: regions.reduce((s, r) => s + Number(r.electricity || 0), 0).toLocaleString(), tooltip: 'Total active electricity connections across all regions' },
+                { label: 'Water Connections', value: regions.reduce((s, r) => s + Number(r.water || 0), 0).toLocaleString(),       tooltip: 'Total active water connections across all regions' },
+                { label: 'Gas Connections',   value: regions.reduce((s, r) => s + Number(r.gas || 0), 0).toLocaleString(),         tooltip: 'Total active gas connections across all regions' },
+              ].map(({ label, value, tooltip }) => (
+                <div key={label} className="bg-card border-0.5 border-white/[0.07] rounded-2xl p-4">
+                  <Tooltip text={tooltip}>
+                    <div className="font-mono text-[9px] uppercase tracking-wider text-muted mb-1">{label}</div>
+                  </Tooltip>
+                  <div className="font-barlow text-2xl font-bold text-txt">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Region grid */}
+            {regions.length === 0 ? (
+              <div className="bg-card border-0.5 border-white/[0.07] rounded-2xl p-12 text-center">
+                <p className="font-outfit text-sub">No regions found</p>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Overview stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Regions',      value: regions.length,                                           icon: Map     },
-            { label: 'Elec Connections',   value: regions.reduce((s, r) => s + r.electricity, 0).toLocaleString(), icon: Zap     },
-            { label: 'Water Connections',  value: regions.reduce((s, r) => s + r.water, 0).toLocaleString(),       icon: Droplet },
-            { label: 'Gas Connections',    value: regions.reduce((s, r) => s + r.gas, 0).toLocaleString(),         icon: Flame   },
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="bg-card border-0.5 border-white/[0.07] rounded-2xl p-4">
-              <div className="font-mono text-[9px] uppercase tracking-wider text-muted mb-1">{label}</div>
-              <div className="font-barlow text-2xl font-bold text-txt">{value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Region grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {regions.map(r => (
-            <RegionCard
-              key={r.id}
-              region={r}
-              onClick={() => navigate(`/employee/regions`)}
-            />
-          ))}
-        </div>
-
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {regions.map(r => (
+                  <RegionCard
+                    key={r.id}
+                    region={r}
+                    onClick={() => navigate('/employee/regions')}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

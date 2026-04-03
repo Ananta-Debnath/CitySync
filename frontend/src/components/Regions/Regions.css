@@ -185,6 +185,120 @@
   background: rgba(232, 232, 232, 0.13);
 }
 
+/* ── Utility Availability ────────────────────────────────────────────────────── */
+.utility-availability-section {
+  margin-top: 36px;
+  border-top: 1px solid rgba(232, 232, 232, 0.1);
+  padding-top: 28px;
+}
+
+.utility-availability-section h3 {
+  color: #E8E8E8;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.utility-availability-hint {
+  color: rgba(232, 232, 232, 0.45);
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+}
+
+.utility-availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.utility-availability-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #141414;
+  border: 1px solid rgba(232, 232, 232, 0.08);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.utility-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.utility-name {
+  color: #E8E8E8;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.utility-type {
+  color: rgba(232, 232, 232, 0.4);
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(232, 232, 232, 0.15);
+  border-radius: 22px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: rgba(232, 232, 232, 0.5);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(204, 255, 0, 0.25);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background: #CCFF00;
+}
+
+.availability-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 72px;
+}
+
+.availability-label.available {
+  color: #CCFF00;
+}
+
+.availability-label.unavailable {
+  color: #FF5757;
+}
+
 /* ── States ──────────────────────────────────────────────────────────────────── */
 .loading {
   text-align: center;

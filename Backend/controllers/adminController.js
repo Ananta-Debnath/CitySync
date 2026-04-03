@@ -1149,6 +1149,292 @@ const deleteTableRow = async (req, res) => {
   }
 };
 
+const getRegionUtilities = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT u.utility_id, u.utility_name, u.utility_type,
+              COALESCE(ur.is_available, TRUE) AS is_available
+       FROM utility_region ur
+       JOIN utility u ON ur.utility_id = u.utility_id
+       WHERE ur.region_id = $1
+       ORDER BY u.utility_name`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const updateRegionUtilityAvailability = async (req, res) => {
+  const { id, utilityId } = req.params;
+  const { is_available } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE utility_region
+       SET is_available = $1
+       WHERE region_id = $2 AND utility_id = $3
+       RETURNING *`,
+      [is_available, id, utilityId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Utility not found in this region' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const updateRegionCapacity = async (req, res) => {
+  const { id } = req.params;
+  const { max_connections, is_accepting_connections, capacity_note } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE region
+       SET max_connections           = COALESCE($1, max_connections),
+           is_accepting_connections  = COALESCE($2, is_accepting_connections),
+           capacity_note             = $3
+       WHERE region_id = $4 RETURNING *`,
+      [max_connections, is_accepting_connections, capacity_note ?? null, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Region not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getRevenueAnalytics = async (req, res) => {
+  try {
+    const [monthlyRes, quarterlyRes, yearlyRes, breakdownRes, lossesRes, topRegionsRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', bd.bill_generation_date), 'Mon') AS period,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'electricity' THEN bd.total_amount ELSE 0 END), 0)::float AS electricity,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'water'       THEN bd.total_amount ELSE 0 END), 0)::float AS water,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'gas'         THEN bd.total_amount ELSE 0 END), 0)::float AS gas
+        FROM bill_document bd
+        JOIN utility_connection uc ON bd.connection_id = uc.connection_id
+        JOIN tariff t  ON uc.tariff_id  = t.tariff_id
+        JOIN utility u ON t.utility_id  = u.utility_id
+        WHERE bd.bill_generation_date >= CURRENT_DATE - INTERVAL '6 months'
+          AND bd.bill_status NOT ILIKE 'CANCELLED'
+        GROUP BY DATE_TRUNC('month', bd.bill_generation_date)
+        ORDER BY DATE_TRUNC('month', bd.bill_generation_date)
+      `),
+      pool.query(`
+        SELECT
+          'Q' || EXTRACT(QUARTER FROM bd.bill_generation_date)::text
+            || ' ' || TO_CHAR(bd.bill_generation_date, 'YY') AS period,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'electricity' THEN bd.total_amount ELSE 0 END), 0)::float AS electricity,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'water'       THEN bd.total_amount ELSE 0 END), 0)::float AS water,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'gas'         THEN bd.total_amount ELSE 0 END), 0)::float AS gas
+        FROM bill_document bd
+        JOIN utility_connection uc ON bd.connection_id = uc.connection_id
+        JOIN tariff t  ON uc.tariff_id  = t.tariff_id
+        JOIN utility u ON t.utility_id  = u.utility_id
+        WHERE bd.bill_generation_date >= CURRENT_DATE - INTERVAL '12 months'
+          AND bd.bill_status NOT ILIKE 'CANCELLED'
+        GROUP BY
+          DATE_TRUNC('quarter', bd.bill_generation_date),
+          EXTRACT(QUARTER FROM bd.bill_generation_date),
+          TO_CHAR(bd.bill_generation_date, 'YY')
+        ORDER BY DATE_TRUNC('quarter', bd.bill_generation_date)
+      `),
+      pool.query(`
+        SELECT
+          TO_CHAR(bd.bill_generation_date, 'YYYY') AS period,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'electricity' THEN bd.total_amount ELSE 0 END), 0)::float AS electricity,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'water'       THEN bd.total_amount ELSE 0 END), 0)::float AS water,
+          COALESCE(SUM(CASE WHEN LOWER(u.utility_type) = 'gas'         THEN bd.total_amount ELSE 0 END), 0)::float AS gas
+        FROM bill_document bd
+        JOIN utility_connection uc ON bd.connection_id = uc.connection_id
+        JOIN tariff t  ON uc.tariff_id  = t.tariff_id
+        JOIN utility u ON t.utility_id  = u.utility_id
+        WHERE bd.bill_generation_date >= CURRENT_DATE - INTERVAL '3 years'
+          AND bd.bill_status NOT ILIKE 'CANCELLED'
+        GROUP BY TO_CHAR(bd.bill_generation_date, 'YYYY')
+        ORDER BY period
+      `),
+      pool.query(`
+        WITH grand AS (SELECT COALESCE(SUM(total_amount), 1) AS total FROM bill_document WHERE bill_status NOT ILIKE 'CANCELLED')
+        SELECT
+          CASE
+            WHEN LOWER(u.utility_type) = 'electricity' THEN 'Electricity'
+            WHEN LOWER(u.utility_type) = 'water'       THEN 'Water'
+            WHEN LOWER(u.utility_type) = 'gas'         THEN 'Gas'
+            ELSE 'Other'
+          END AS name,
+          ROUND(100.0 * SUM(bd.total_amount) / (SELECT total FROM grand), 1)::float AS value
+        FROM bill_document bd
+        JOIN utility_connection uc ON bd.connection_id = uc.connection_id
+        JOIN tariff t  ON uc.tariff_id  = t.tariff_id
+        JOIN utility u ON t.utility_id  = u.utility_id
+        WHERE bd.bill_status NOT ILIKE 'CANCELLED'
+        GROUP BY LOWER(u.utility_type)
+      `),
+      pool.query(`
+        WITH cq AS (
+          SELECT COALESCE(SUM(CASE WHEN bill_status = 'UNPAID' THEN total_amount END), 0) AS unpaid
+          FROM bill_document WHERE bill_generation_date >= CURRENT_DATE - INTERVAL '3 months'
+        ),
+        pq AS (
+          SELECT COALESCE(SUM(CASE WHEN bill_status = 'UNPAID' THEN total_amount END), 0) AS unpaid
+          FROM bill_document
+          WHERE bill_generation_date >= CURRENT_DATE - INTERVAL '6 months'
+            AND bill_generation_date < CURRENT_DATE - INTERVAL '3 months'
+        )
+        SELECT
+          cq.unpaid::float                                        AS unpaid_total,
+          CASE
+            WHEN pq.unpaid > 0
+            THEN ROUND(((cq.unpaid - pq.unpaid) / pq.unpaid) * 100, 1)
+            ELSE 0
+          END::float                                              AS trend_pct,
+          CASE WHEN cq.unpaid >= pq.unpaid THEN 'increasing' ELSE 'decreasing' END AS trend
+        FROM cq, pq
+      `),
+      pool.query(`
+        SELECT
+          r.region_name AS name,
+          ROUND(
+            100.0 * COUNT(CASE WHEN bd.bill_status = 'UNPAID' THEN 1 END) /
+            NULLIF(COUNT(bd.bill_document_id), 0),
+            1
+          )::float AS rate
+        FROM region r
+        LEFT JOIN address  a  ON r.region_id   = a.region_id
+        LEFT JOIN meter    m  ON a.address_id  = m.address_id
+        LEFT JOIN utility_connection uc ON m.meter_id = uc.meter_id
+        LEFT JOIN bill_document bd ON uc.connection_id = bd.connection_id
+          AND bd.bill_status NOT ILIKE 'CANCELLED'
+        GROUP BY r.region_name
+        HAVING COUNT(bd.bill_document_id) > 0
+        ORDER BY rate DESC NULLS LAST
+        LIMIT 3
+      `)
+    ]);
+
+    const colors = { Electricity: '#CCFF00', Water: '#00D4FF', Gas: '#FF9900', Other: '#888888' };
+    const breakdown = breakdownRes.rows.map(r => ({ ...r, color: colors[r.name] || '#888888' }));
+    const losses = lossesRes.rows[0] || { unpaid_total: 0, trend_pct: 0, trend: 'stable' };
+
+    res.json({
+      monthly:    monthlyRes.rows,
+      quarterly:  quarterlyRes.rows,
+      yearly:     yearlyRes.rows,
+      breakdown,
+      losses: { ...losses, top_regions: topRegionsRes.rows },
+    });
+  } catch (err) {
+    console.error('Revenue analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch revenue analytics' });
+  }
+};
+
+const getWorkerAnalytics = async (req, res) => {
+  try {
+    const [workersRes, trendsRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          fw.person_id                                          AS id,
+          p.first_name || ' ' || p.last_name                   AS name,
+          COALESCE(r.region_name, 'Unassigned')                AS region,
+          COUNT(CASE WHEN c.status = 'Resolved' THEN 1 END)    AS complaints,
+          ROUND(
+            AVG(CASE
+              WHEN c.status = 'Resolved'
+               AND c.assignment_date IS NOT NULL
+               AND c.resolution_date IS NOT NULL
+              THEN EXTRACT(EPOCH FROM (c.resolution_date - c.assignment_date)) / 3600
+            END), 1
+          )::float                                              AS avg_hours,
+          COUNT(DISTINCT mr.reading_id)                        AS readings
+        FROM field_worker fw
+        JOIN person p ON fw.person_id = p.person_id
+        LEFT JOIN region r ON fw.assigned_region_id = r.region_id
+        LEFT JOIN complaint c ON fw.person_id = c.assigned_to
+        LEFT JOIN meter_reading mr ON fw.person_id = mr.field_worker_id
+        GROUP BY fw.person_id, p.first_name, p.last_name, r.region_name
+        ORDER BY complaints DESC
+      `),
+      pool.query(`
+        SELECT
+          fw.person_id                                          AS id,
+          TO_CHAR(DATE_TRUNC('month', c.resolution_date), 'Mon') AS m,
+          COUNT(*)::int                                         AS v
+        FROM field_worker fw
+        JOIN complaint c ON fw.person_id = c.assigned_to
+        WHERE c.status = 'Resolved'
+          AND c.resolution_date >= CURRENT_DATE - INTERVAL '6 months'
+        GROUP BY fw.person_id, DATE_TRUNC('month', c.resolution_date)
+        ORDER BY fw.person_id, DATE_TRUNC('month', c.resolution_date)
+      `)
+    ]);
+
+    // Build perfHistory map keyed by worker id
+    const perfHistory = {};
+    for (const row of trendsRes.rows) {
+      if (!perfHistory[row.id]) perfHistory[row.id] = [];
+      perfHistory[row.id].push({ m: row.m, v: row.v });
+    }
+
+    res.json({ workers: workersRes.rows, perfHistory });
+  } catch (err) {
+    console.error('Worker analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch worker analytics' });
+  }
+};
+
+const getRegionalAnalytics = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        r.region_id                                                                AS id,
+        r.region_name                                                              AS name,
+        r.postal_code,
+        COALESCE(r.max_connections, 1000)                                          AS max_connections,
+        COALESCE(r.is_accepting_connections, TRUE)                                 AS is_accepting_connections,
+        COALESCE(r.capacity_note, '')                                              AS capacity_note,
+        COUNT(CASE WHEN uc.connection_status IN ('Active','Pending') THEN uc.connection_id END) AS current_connections,
+        COUNT(CASE WHEN LOWER(u.utility_type) = 'electricity' AND uc.connection_status = 'Active' THEN uc.connection_id END) AS electricity,
+        COUNT(CASE WHEN LOWER(u.utility_type) = 'water'       AND uc.connection_status = 'Active' THEN uc.connection_id END) AS water,
+        COUNT(CASE WHEN LOWER(u.utility_type) = 'gas'         AND uc.connection_status = 'Active' THEN uc.connection_id END) AS gas,
+        COUNT(CASE WHEN uc.connection_status = 'Pending' THEN uc.connection_id END)                                           AS pending,
+        COUNT(CASE WHEN c.status NOT ILIKE 'Resolved' AND c.status IS NOT NULL THEN c.complaint_id END)                       AS complaints
+      FROM region r
+      LEFT JOIN address  a  ON r.region_id   = a.region_id
+      LEFT JOIN meter    m  ON a.address_id  = m.address_id
+      LEFT JOIN utility_connection uc ON m.meter_id = uc.meter_id
+      LEFT JOIN tariff   t  ON uc.tariff_id  = t.tariff_id
+      LEFT JOIN utility  u  ON t.utility_id  = u.utility_id
+      LEFT JOIN complaint c ON uc.connection_id = c.connection_id
+      GROUP BY r.region_id, r.region_name, r.postal_code,
+               r.max_connections, r.is_accepting_connections, r.capacity_note
+      ORDER BY r.region_name
+    `);
+
+    const regions = result.rows.map(r => {
+      const pct = r.max_connections > 0
+        ? Math.round((r.current_connections / r.max_connections) * 100)
+        : 0;
+      let status = 'Available';
+      if (!r.is_accepting_connections) status = 'Closed';
+      else if (pct >= 90) status = 'Overloaded';
+      else if (pct >= 70) status = 'Limited';
+      return { ...r, capacity_pct: pct, status };
+    });
+
+    res.json({ regions });
+  } catch (err) {
+    console.error('Regional analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch regional analytics' });
+  }
+};
+
 const getProfile = async (req, res) => {
   try {
     const result = await pool.query(
@@ -1406,4 +1692,10 @@ module.exports = {
   getReadings,
   getReadingById,
   approveReading,
+  updateRegionCapacity,
+  getRegionUtilities,
+  updateRegionUtilityAvailability,
+  getRevenueAnalytics,
+  getWorkerAnalytics,
+  getRegionalAnalytics,
 };

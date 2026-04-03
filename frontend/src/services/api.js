@@ -27,9 +27,17 @@ api.interceptors.request.use(
 
 // ── Regions ────────────────────────────────────────────────────────
 // export const getRegions    = ()         => api.get('/admin/regions');
-export const createRegion  = (data)     => api.post('/admin/regions', data);
-export const updateRegion  = (id, data) => api.put(`/admin/regions/${id}`, data);
-export const deleteRegion  = (id)       => api.delete(`/admin/regions/${id}`);
+export const createRegion                    = (data)                 => api.post('/admin/regions', data);
+export const updateRegion                    = (id, data)             => api.put(`/admin/regions/${id}`, data);
+export const updateRegionCapacity            = (id, data)             => api.put(`/admin/regions/${id}/capacity`, data);
+export const getRegionUtilities              = (id)                   => api.get(`/admin/regions/${id}/utilities`);
+export const updateRegionUtilityAvailability = (id, utilityId, data)  => api.put(`/admin/regions/${id}/utilities/${utilityId}`, data);
+export const deleteRegion                    = (id)                   => api.delete(`/admin/regions/${id}`);
+
+// ── Analytics ──────────────────────────────────────────────────────
+export const getRevenueAnalytics  = () => api.get('/admin/analytics/revenue');
+export const getWorkerAnalytics   = () => api.get('/admin/analytics/workers');
+export const getRegionalAnalytics = () => api.get('/admin/analytics/regions');
 
 // ── Dashboard ──────────────────────────────────────────────────────
 export const getTableOverview = () => api.get('/admin/tables');
@@ -106,6 +114,7 @@ export const getFieldworkerProfile = () => api.get('/fieldworker/profile');
 // ── Public (no auth) ──────────────────────────────────────────────
 export const getPublicTestDb = () => api.get('/public/test-db');
 export const getRegions = () => api.get('/public/regions');
+export const getRegionAvailability = (id) => api.get(`/public/regions/${id}/availability`);
 export const getPublicBanks = () => api.get('/public/banks');
 export const getPublicUtilityNames = (reg_id) => api.get(`/public/utility-names/${reg_id}`);
 export const getPublicMobileBankingProviders = () => api.get('/public/mobile-banking-providers');

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { X, Zap, Droplets, Flame } from '../../Icons';
 import Select from 'react-select';
-import { submitConsumerApplication, getRegions, getMyProfile, getPublicUtilityNames } from '../../services/api';
+import { submitConsumerApplication, getRegions, getMyProfile, getPublicUtilityNames, getRegionAvailability } from '../../services/api';
 
 const NewApplicationModal = ({ onClose, onSuccess }) => {
   const [form, setForm] = useState({ requested_connection_type: 'Residential', region_id: '', address: '', utility_id: '', priority: 'Normal' });
@@ -13,6 +13,8 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
   const [utility_type, setUtilityType] = useState('electricity');
   const [utilitiesList, setUtilitiesList] = useState([]);
   const [useMyAddress, setUseMyAddress] = useState(false);
+  const [regionWarning, setRegionWarning] = useState(null);
+  const [acknowledgeWarning, setAcknowledgeWarning] = useState(false);
 
   const handleUseMyAddress = async (checked) => {
     if (checked) {
@@ -24,10 +26,22 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
     }
   };
 
+  const checkRegionAvailability = useCallback(async (regionId) => {
+    if (!regionId) { setRegionWarning(null); return; }
+    try {
+      const res = await getRegionAvailability(regionId);
+      setRegionWarning(res.data.warning || null);
+      setAcknowledgeWarning(false);
+    } catch {
+      setRegionWarning(null);
+    }
+  }, []);
+
   const handleSubmit = async () => {
     if (!form.address.trim()) { setError('Address is required'); return; }
     if (!form.region_id) { setError('Region is required'); return; }
     if (!form.utility_id) { setError('Utility is required'); return; }
+    if (regionWarning && !acknowledgeWarning) { setError('Please acknowledge the region capacity warning before submitting'); return; }
     setLoading(true); setError('');
     try {
       await submitConsumerApplication(form);
@@ -180,11 +194,26 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
                             value={regionOptions.find(o => o.value === form.region_id)}
                             onChange={opt => {
                                 setForm(f => ({ ...f, region_id: opt?.value || '' }));
-                                if (opt?.value) fetchUtilities(opt.value);
+                                if (opt?.value) { fetchUtilities(opt.value); checkRegionAvailability(opt.value); }
+                                else { setRegionWarning(null); }
                             }}
                             isDisabled={useMyAddress}
                             placeholder="Search Region..."
                         />
+                        {regionWarning && (
+                            <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4">
+                                <p className="font-outfit text-xs text-yellow-300 mb-3">{regionWarning}</p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={acknowledgeWarning}
+                                        onChange={e => setAcknowledgeWarning(e.target.checked)}
+                                        className="accent-lime"
+                                    />
+                                    <span className="font-outfit text-xs text-txt/60">I understand and want to apply anyway</span>
+                                </label>
+                            </div>
+                        )}
                     </div>
 
                     <div>

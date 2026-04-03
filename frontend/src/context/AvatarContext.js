@@ -5,22 +5,20 @@ import { getMyProfile } from '../services/api';
 const AvatarContext = createContext(null);
 
 export const AvatarProvider = ({ children }) => {
-  const { authFetch, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [avatar, setAvatar] = useState(null);
 
   // Fetch avatar once on login
   const loadAvatar = useCallback(async () => {
     if (!isAuthenticated) { setAvatar(null); return; }
     try {
-      // const res  = await authFetch('/api/consumer/profile');
       const res = await getMyProfile();
-      if (!res.ok) return;
-      const data = await res.json();
-      setAvatar(data.avatar_url || null);
+      setAvatar(res.data.avatar_url || null);
+      console.log(res.data.avatar_url);
     } catch {
       // non-consumer roles won't have this endpoint — silently ignore
     }
-  }, [isAuthenticated, authFetch]);
+  }, [isAuthenticated]);
 
   useEffect(() => { loadAvatar(); }, [loadAvatar]);
 
