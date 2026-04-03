@@ -66,6 +66,7 @@ export const statusColors = {
   'Under Review': { lb:'#EEF2FF', lc:'#4338CA', db:'#1E1B4B', dc:'#818CF8' },
   Approved:       { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
   Rejected:       { lb:'#FEE2E2', lc:'#B91C1C', db:'#2D0C0C', dc:'#F87171' },
+  Paid:         { lb:'#DCFCE7', lc:'#16A34A', db:'#0D2E1A', dc:'#4ADE80' },
 };
 
 export const radii = { sm:8, md:10, lg:12, xl:16, '2xl':20, full:9999 };

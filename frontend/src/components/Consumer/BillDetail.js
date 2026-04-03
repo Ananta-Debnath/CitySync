@@ -133,7 +133,7 @@ const BillDetail = ({ billId, onClose, onBillPaid }) => {
             const dateVal = isPayable ? bill.due_date : bill.payment_date;
             const dateDisplay = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
             const items = [
-              { label:'Units Used',     val:`${bill.unit_consumed}`, sub: bill.unit_of_measurement || 'units' },
+              { label:'Units Used',     val:`${bill.unit_consumed ?? '—'}`, sub: bill.unit_consumed ? bill.unit_of_measurement || 'units' : '' },
               { label:'Energy Charge',  val:`৳ ${parseFloat(bill.energy_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub:'Excl. taxes' },
               { label: dateLabel, val: dateDisplay },
             ];

@@ -7,18 +7,6 @@
 -- Payment -> Update bill/balance --- DONE
 -- Usage -> Update balance -- DONE
 
--- ── VAT / Tariff Migration (run on existing databases) ───────────────────────
-ALTER TABLE TARIFF
-    ADD COLUMN IF NOT EXISTS VAT_RATE NUMERIC(5,2) DEFAULT 5.00,
-    ADD COLUMN IF NOT EXISTS IS_VAT_EXEMPT BOOLEAN DEFAULT FALSE;
-
-ALTER TABLE BILL_DOCUMENT
-    ADD COLUMN IF NOT EXISTS SUBTOTAL NUMERIC(10,2),
-    ADD COLUMN IF NOT EXISTS VAT_RATE NUMERIC(5,2) DEFAULT 0.00,
-    ADD COLUMN IF NOT EXISTS VAT_AMOUNT NUMERIC(10,2) DEFAULT 0.00,
-    ADD COLUMN IF NOT EXISTS IS_VAT_EXEMPT BOOLEAN DEFAULT FALSE;
--- ─────────────────────────────────────────────────────────────────────────────
-
 
 
 -- FUNCTIONS
@@ -169,6 +157,9 @@ RETURNS INTEGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_vat_rate NUMERIC(5,2);
+  v_is_vat_exempt BOOLEAN;
+  v_vat_amount NUMERIC(10,2);
   v_amount_remaining NUMERIC(10,2) := COALESCE(p_amount, 0);
   v_connection_id INTEGER;
   v_bill_document_id INTEGER;
@@ -187,13 +178,25 @@ BEGIN
     RAISE EXCEPTION 'Prepaid account not found: %', p_account_id;
   END IF;
 
+  SELECT vat_rate, is_vat_exempt INTO v_vat_rate, v_is_vat_exempt
+  FROM utility_connection uc
+  JOIN tariff t ON t.tariff_id = uc.tariff_id
+  WHERE uc.connection_id = v_connection_id;
+
+  IF v_is_vat_exempt THEN
+    v_vat_rate := 0;
+  END IF;
+  
+  v_vat_amount := ROUND((v_vat_rate / 100) * v_amount_remaining, 2);
+
   -- Create a placeholder bill_document for this prepaid recharge. The detailed bill
   -- (if needed) can be created/updated later; we need a bill id to link applied fixed charges.
-  INSERT INTO bill_document(connection_id, bill_type, unit_consumed, energy_amount, total_amount, bill_status)
-  VALUES (v_connection_id, 'PREPAID', 0, 0, p_amount, 'CANCELLED')
+  INSERT INTO bill_document(connection_id, bill_type, energy_amount, subtotal, vat_rate, vat_amount, total_amount, bill_status)
+  VALUES (v_connection_id, 'PREPAID', 0, p_amount - v_vat_amount, v_vat_rate, v_vat_amount, p_amount, 'CANCELLED')
   RETURNING bill_document_id INTO v_bill_document_id;
 
-	-- ADD VAT (LATER)
+	-- ADD VAT
+  v_amount_remaining := v_amount_remaining - v_vat_amount;
 
   -- Create prepaid statement entry (token can be NULL for now)
   INSERT INTO prepaid_statement(bill_document_id)
@@ -220,12 +223,6 @@ BEGIN
         -- already applied for this bill; ignore
       END;
 
-      -- Removal will happen after payment completion
-      -- DELETE FROM fixed_charge_owed
-      -- WHERE fixed_charge_id = v_rec.fixed_charge_id
-      --   AND prepaid_account_id = p_account_id
-      --   AND timeframe = v_rec.timeframe;
-
       v_amount_remaining := v_amount_remaining - v_rec.amount;
     ELSE
       -- Partially pay this owed fixed charge: record as applied and keep remainder
@@ -235,13 +232,6 @@ BEGIN
         VALUES (v_rec.fixed_charge_id, v_bill_document_id, v_rec.timeframe, v_amount_remaining);
       EXCEPTION WHEN unique_violation THEN
       END;
-
-			-- Removal will happen after payment completion
-      -- UPDATE fixed_charge_owed
-      -- SET amount = amount - v_amount_remaining
-      -- WHERE fixed_charge_id = v_rec.fixed_charge_id
-      --   AND prepaid_account_id = p_account_id
-      --   AND timeframe = v_rec.timeframe;
 
       v_amount_remaining := 0;
       EXIT;
