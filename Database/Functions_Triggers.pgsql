@@ -62,7 +62,8 @@ BEGIN
     FROM usage u
     JOIN utility_connection c ON u.meter_id = c.meter_id
     WHERE c.connection_id = p_connection_id
-      AND u.time_to BETWEEN p_start_date AND p_end_date;
+      AND u.time_to >= p_start_date::TIMESTAMP
+      AND u.time_to < (p_end_date::TIMESTAMP + INTERVAL '1 day');
 
     RETURN v_total;
 END
@@ -186,7 +187,7 @@ BEGIN
   IF v_is_vat_exempt THEN
     v_vat_rate := 0;
   END IF;
-  
+
   v_vat_amount := ROUND((v_vat_rate / 100) * v_amount_remaining, 2);
 
   -- Create a placeholder bill_document for this prepaid recharge. The detailed bill
@@ -470,6 +471,193 @@ CREATE TRIGGER payment_after_insert_trg
 AFTER INSERT ON payment
 FOR EACH ROW
 EXECUTE FUNCTION payment_after_insert();
+
+
+
+
+------------PROCEDURES----------
+
+CREATE OR REPLACE PROCEDURE create_postpaid_bill_for_connection(
+  p_connection_id INTEGER,
+  p_period_start DATE,
+  p_period_end DATE DEFAULT CURRENT_DATE,
+  p_due_in_days INTEGER DEFAULT 15,
+  p_run_date DATE DEFAULT CURRENT_DATE
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_period_start DATE;
+  v_period_end DATE;
+  v_period_end_exclusive TIMESTAMP;
+  v_bill_generation_date DATE;
+
+  v_meter_id INTEGER;
+  v_tariff_id INTEGER;
+  v_connection_status TEXT;
+  v_payment_type TEXT;
+
+  v_bill_document_id INTEGER;
+
+  v_unit_consumed NUMERIC(10, 2);
+  v_energy_amount bill_document.energy_amount%TYPE;
+  v_fixed_charge_total bill_document.energy_amount%TYPE := 0;
+  v_subtotal bill_document.subtotal%TYPE;
+  v_vat_rate bill_document.vat_rate%TYPE;
+  v_is_vat_exempt BOOLEAN;
+  v_vat_amount bill_document.vat_amount%TYPE;
+  v_total_amount bill_document.total_amount%TYPE;
+
+  r RECORD;
+
+BEGIN
+  IF p_due_in_days < 0 THEN
+    RAISE EXCEPTION 'p_due_in_days must be >= 0. Got: %', p_due_in_days;
+  END IF;
+
+  SELECT uc.meter_id, uc.tariff_id, uc.connection_status, uc.payment_type
+  INTO v_meter_id, v_tariff_id, v_connection_status, v_payment_type
+  FROM utility_connection uc
+  WHERE uc.connection_id = p_connection_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Connection not found: %', p_connection_id;
+  END IF;
+
+  IF v_payment_type NOT ILIKE 'POSTPAID' THEN
+    RAISE EXCEPTION 'Connection % is not postpaid', p_connection_id;
+  END IF;
+
+  IF v_connection_status NOT ILIKE 'ACTIVE' THEN
+    RAISE EXCEPTION 'Connection % is not active', p_connection_id;
+  END IF;
+
+  v_bill_generation_date := p_run_date;
+  -- v_period_start := (date_trunc('month', p_run_date) - INTERVAL '1 month')::DATE;
+  -- v_period_end := (date_trunc('month', p_run_date) - INTERVAL '1 day')::DATE;
+  v_period_end_exclusive := p_period_end + INTERVAL '1 day';
+
+  -- Skip if bill already exists for this connection and period.
+  IF EXISTS (
+    SELECT 1
+    FROM bill_document bd
+    JOIN bill_postpaid bp ON bp.bill_document_id = bd.bill_document_id
+    WHERE bd.connection_id = p_connection_id
+      AND bp.bill_period_end >= p_period_start
+      AND bp.bill_period_start <= p_period_end
+  ) THEN
+    -- RAISE EXCEPTION 'Bill already exists for connection % and period % to %', p_connection_id, p_period_start, p_period_end;
+    RETURN;
+  END IF;
+
+  SELECT COALESCE(SUM(u.unit_used), 0)
+  INTO v_unit_consumed
+  FROM usage u
+  WHERE u.meter_id = v_meter_id
+    AND u.time_to >= p_period_start::TIMESTAMP
+    AND u.time_to < v_period_end_exclusive;
+
+  v_energy_amount := calculate_energy_amount(p_connection_id, p_period_start, p_period_end);
+
+  -- SELECT COALESCE(SUM(fc.charge_amount), 0)
+  -- INTO v_fixed_charge_total
+  -- FROM fixed_charge fc
+  -- WHERE fc.tariff_id = v_tariff_id
+  --   AND fc.charge_frequency ILIKE 'MONTHLY';
+
+  SELECT COALESCE(t.vat_rate, 0), COALESCE(t.is_vat_exempt, FALSE)
+  INTO v_vat_rate, v_is_vat_exempt
+  FROM tariff t
+  WHERE t.tariff_id = v_tariff_id;
+
+  IF v_is_vat_exempt THEN
+    v_vat_rate := 0;
+  END IF;
+
+  -- Early creation for reference
+  INSERT INTO bill_document (connection_id, bill_type, bill_generation_date, energy_amount, subtotal,
+                             vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
+  VALUES (p_connection_id, 'POSTPAID', v_bill_generation_date, v_energy_amount, 0,
+          v_vat_rate, 0, v_is_vat_exempt, 0, 'UNPAID')
+  RETURNING bill_document_id INTO v_bill_document_id;
+
+  FOR r IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
+    v_fixed_charge_total := v_fixed_charge_total + r.charge_amount;
+    INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, amount, timeframe)
+    VALUES(r.fixed_charge_id, v_bill_document_id, r.charge_amount, to_char(p_period_start, 'Mon YYYY'));
+  END LOOP;
+
+  v_subtotal := ROUND(v_energy_amount + v_fixed_charge_total, 2);
+  v_vat_amount := ROUND((v_subtotal * v_vat_rate) / 100.0, 2);
+  v_total_amount := ROUND(v_subtotal + v_vat_amount, 2);
+  
+  UPDATE bill_document
+  SET subtotal = v_subtotal,
+      vat_amount = v_vat_amount,
+      total_amount = v_total_amount
+  WHERE bill_document_id = v_bill_document_id;
+
+  INSERT INTO bill_postpaid (bill_document_id, unit_consumed, bill_period_start, bill_period_end,
+                             due_date, remarks)
+  VALUES (v_bill_document_id, v_unit_consumed, p_period_start, p_period_end,
+          v_bill_generation_date + make_interval(days => p_due_in_days), 'Auto-generated monthly postpaid bill');
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE create_monthly_postpaid_bills(
+  p_month DATE DEFAULT date_trunc('month', CURRENT_DATE) - INTERVAL '1 month',
+  p_run_date DATE DEFAULT CURRENT_DATE,
+  p_due_in_days INTEGER DEFAULT 15
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_connection RECORD;
+BEGIN
+  IF date_trunc('month', p_month)::DATE <> p_month THEN
+    RAISE EXCEPTION 'p_month must be the first day of a month. Got: %', p_month;
+  END IF;
+
+  IF p_due_in_days < 0 THEN
+    RAISE EXCEPTION 'p_due_in_days must be >= 0. Got: %', p_due_in_days;
+  END IF;
+
+  FOR v_connection IN (SELECT uc.connection_id, uc.payment_type FROM utility_connection uc
+                       WHERE uc.connection_status ILIKE 'ACTIVE')
+  LOOP
+    BEGIN
+      IF v_connection.payment_type ILIKE 'POSTPAID' THEN
+        CALL create_postpaid_bill_for_connection(
+          v_connection.connection_id,
+          p_month,
+          (p_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE,
+          p_due_in_days,
+          p_run_date
+        );
+      ELSIF v_connection.payment_type ILIKE 'PREPAID' THEN
+        -- add the fixed charges
+        INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
+        SELECT pa.prepaid_account_id, fc.fixed_charge_id, fc.charge_amount, to_char(p_run_date, 'Mon YYYY')
+        FROM prepaid_account pa
+        JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+        JOIN tariff t ON uc.tariff_id = t.tariff_id
+        JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
+        WHERE fc.is_mandatory = TRUE AND fc.charge_frequency ILIKE 'MONTHLY'
+          AND uc.connection_id = v_connection.connection_id;
+      ELSE
+        RAISE EXCEPTION 'Unknown payment type for connection %: %', v_connection.connection_id, v_connection.payment_type;
+      END IF;
+    
+    EXCEPTION WHEN OTHERS THEN
+      -- Log the error and continue with the next connection
+      INSERT INTO bill_error_log (connection_id, error_message, error_time)
+      VALUES (v_connection.connection_id, SQLERRM, CURRENT_TIMESTAMP);
+
+    END;
+  END LOOP;
+END;
+$$;
+
 
 
 

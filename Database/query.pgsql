@@ -4,6 +4,7 @@ SELECT * FROM BALANCE_TRANSACTION;
 SELECT * FROM BANK;
 SELECT * FROM BANK_NAME;
 SELECT * FROM BILL_DOCUMENT;
+SELECT * FROM BILL_ERROR_LOG;
 SELECT * FROM BILL_POSTPAID;
 SELECT * FROM COMMERCIAL_CONNECTION;
 SELECT * FROM COMPLAINT;
@@ -159,3 +160,37 @@ SELECT c.complaint_id,
       LEFT JOIN address pa ON p.address_id = pa.address_id
       LEFT JOIN region pr ON pa.region_id = pr.region_id
       WHERE c.complaint_id = 3
+
+
+
+SELECT pa.prepaid_account_id, fc.fixed_charge_id, fc.charge_amount, to_char(CURRENT_DATE, 'YYYY-MM')
+      FROM prepaid_account pa
+      JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+      JOIN tariff t ON uc.tariff_id = t.tariff_id
+      JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
+      WHERE fc.is_mandatory AND fc.charge_frequency ILIKE 'MONTHLY';
+
+
+INSERT INTO usage (meter_id, time_from, time_to, unit_used, tariff_id, slab_num)
+VALUES (2, '2026-03-01 00:00:00', '2026-03-1 23:59:59', 350, 101, 1);
+
+CALL create_postpaid_bill_for_connection(3, '2026-03-01', '2026-03-31', 15);
+CALL create_monthly_postpaid_bills();
+
+SELECT * FROM BILL_DOCUMENT bd
+JOIN BILL_POSTPAID bp ON bd.bill_document_id = bp.bill_document_id;
+
+
+DELETE FROM fixed_charge_applied
+WHERE bill_document_id = 27;
+DELETE FROM bill_postpaid
+WHERE bill_document_id = 27;
+DELETE FROM bill_document
+WHERE bill_document_id = 27;
+
+DELETE FROM fixed_charge_owed
+WHERE prepaid_account_id = 2;
+
+
+SELECT (date_trunc('month', CURRENT_DATE) - INTERVAL '1 month')::DATE AS previous_month_start,
+       ((date_trunc('month', CURRENT_DATE) - INTERVAL '1 month') + INTERVAL '1 month')::DATE AS end_;
