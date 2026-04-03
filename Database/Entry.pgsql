@@ -48,8 +48,8 @@ BEGIN
     INSERT INTO residential_connection (connection_id, property_type, is_subsidized)
     VALUES (v_connection_id, 'Apartment', false);
 
-    INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, total_amount, bill_status)
-    VALUES (v_connection_id, 'PREPAID', 0, 100.00, 100.00, 'CANCELLED')
+    INSERT INTO bill_document (connection_id, bill_type, energy_amount, total_amount, bill_status)
+    VALUES (v_connection_id, 'PREPAID', 100.00, 100.00, 'CANCELLED')
     RETURNING bill_document_id INTO v_bill_document_id;
 
     INSERT INTO prepaid_statement (bill_document_id)
@@ -95,12 +95,12 @@ BEGIN
     INSERT INTO residential_connection (connection_id, property_type, is_subsidized)
     VALUES (v_connection_id, 'Apartment', false);
 
-    INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, total_amount)
-    VALUES (v_connection_id, 'POSTPAID', 30, 100.00, 100.00)
+    INSERT INTO bill_document (connection_id, bill_type, energy_amount, total_amount)
+    VALUES (v_connection_id, 'POSTPAID', 100.00, 100.00)
     RETURNING bill_document_id INTO v_bill_document_id;
 
-    INSERT INTO bill_postpaid (bill_document_id, bill_period_start, bill_period_end, due_date)
-    VALUES (v_bill_document_id, '2026-01-01', '2026-01-31', '2026-07-15');
+    INSERT INTO bill_postpaid (bill_document_id, unit_consumed, bill_period_start, bill_period_end, due_date)
+    VALUES (v_bill_document_id, 30, '2026-01-01', '2026-01-31', '2026-07-15');
 
 END
 $$;

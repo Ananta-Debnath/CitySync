@@ -1,5 +1,5 @@
 -- Calculate bill amount from use --- DONE
--- Create bill
+-- Create bill ---DONE
 -- Calculate late payment fine
 -- Create usage from reading --- DONE
 
@@ -15,17 +15,17 @@ RETURNS TEXT
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN (
-        SELECT CONCAT_WS(', ',
-            a.house_num,
-            a.street_name,
-            a.landmark,        -- NULL will be skipped automatically
-            CONCAT(r.region_name, '-', r.postal_code)
-        )
-        FROM address a
-        JOIN region r ON a.region_id = r.region_id
-        WHERE a.address_id = p_address_id
-    );
+  RETURN (
+    SELECT CONCAT_WS(', ',
+      a.house_num,
+      a.street_name,
+      a.landmark,        -- NULL will be skipped automatically
+      CONCAT(r.region_name, '-', r.postal_code)
+    )
+    FROM address a
+    JOIN region r ON a.region_id = r.region_id
+    WHERE a.address_id = p_address_id
+  );
 END;
 $$;
 
@@ -508,7 +508,7 @@ DECLARE
   v_vat_amount bill_document.vat_amount%TYPE;
   v_total_amount bill_document.total_amount%TYPE;
 
-  r RECORD;
+  v_fc RECORD;
 
 BEGIN
   IF p_due_in_days < 0 THEN
@@ -581,10 +581,10 @@ BEGIN
           v_vat_rate, 0, v_is_vat_exempt, 0, 'UNPAID')
   RETURNING bill_document_id INTO v_bill_document_id;
 
-  FOR r IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
-    v_fixed_charge_total := v_fixed_charge_total + r.charge_amount;
+  FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
+    v_fixed_charge_total := v_fixed_charge_total + v_fc.charge_amount;
     INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, amount, timeframe)
-    VALUES(r.fixed_charge_id, v_bill_document_id, r.charge_amount, to_char(p_period_start, 'Mon YYYY'));
+    VALUES(v_fc.fixed_charge_id, v_bill_document_id, v_fc.charge_amount, to_char(p_period_start, 'Mon YYYY'));
   END LOOP;
 
   v_subtotal := ROUND(v_energy_amount + v_fixed_charge_total, 2);
@@ -604,7 +604,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE create_monthly_postpaid_bills(
+CREATE OR REPLACE PROCEDURE create_monthly_bills(
   p_month DATE DEFAULT date_trunc('month', CURRENT_DATE) - INTERVAL '1 month',
   p_run_date DATE DEFAULT CURRENT_DATE,
   p_due_in_days INTEGER DEFAULT 15
@@ -637,7 +637,7 @@ BEGIN
       ELSIF v_connection.payment_type ILIKE 'PREPAID' THEN
         -- add the fixed charges
         INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
-        SELECT pa.prepaid_account_id, fc.fixed_charge_id, fc.charge_amount, to_char(p_run_date, 'Mon YYYY')
+        SELECT pa.prepaid_account_id, fc.fixed_charge_id, fc.charge_amount, to_char(p_month + INTERVAL '1 month', 'Mon YYYY')
         FROM prepaid_account pa
         JOIN utility_connection uc ON pa.connection_id = uc.connection_id
         JOIN tariff t ON uc.tariff_id = t.tariff_id
@@ -650,8 +650,8 @@ BEGIN
     
     EXCEPTION WHEN OTHERS THEN
       -- Log the error and continue with the next connection
-      INSERT INTO bill_error_log (connection_id, error_message, error_time)
-      VALUES (v_connection.connection_id, SQLERRM, CURRENT_TIMESTAMP);
+      INSERT INTO bill_error_log (connection_id, bill_month, error_message, error_time)
+      VALUES (v_connection.connection_id, to_char(p_month, 'Mon YYYY'), SQLERRM, CURRENT_TIMESTAMP);
 
     END;
   END LOOP;

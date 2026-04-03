@@ -142,7 +142,7 @@ const getBills = async (req, res) => {
       LEFT JOIN prepaid_statement ps  ON bd.bill_document_id  = ps.bill_document_id
       LEFT JOIN payment p             ON bd.bill_document_id = p.bill_document_id
       WHERE uc.consumer_id = $1 AND bd.bill_status NOT ILIKE 'CANCELLED'
-      ORDER BY bd.bill_generation_date DESC
+      ORDER BY bd.bill_generation_date DESC, bd.bill_document_id DESC
       LIMIT $2
     `, [req.user.person_id, limit]);
 
