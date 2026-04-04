@@ -6,6 +6,7 @@ import AIAssistant from '../AIAssistant';
 import ConsumerHeader from './ConsumerHeader';
 import FloatingNavRail from '../Employee/Shared/FloatingNavRail';
 import FieldWorkerNavRail from '../Shared/FieldWorkerNavRail';
+import DotGrid from './DotGrid';
 
 const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
@@ -23,6 +24,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex min-h-screen bg-bg relative overflow-hidden transition-colors duration-500">
+      {isConsumer && <DotGrid />}
 
       {/* Navigation */}
       {isEmployee ? (

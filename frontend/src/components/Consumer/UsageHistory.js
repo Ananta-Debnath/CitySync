@@ -21,13 +21,13 @@ const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct',
 const normalizeUtilityTag = (tag = '') => {
   const t = String(tag).toLowerCase();
   if (t.includes('electric')) return 'electricity';
-  if (t.includes('water')) return 'water';
-  if (t.includes('gas')) return 'gas';
+  if (t.includes('water'))    return 'water';
+  if (t.includes('gas'))      return 'gas';
   return null;
 };
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
-/** Group raw usage rows into { 'YYYY-MM': { total, label } } sorted ascending */
+/** Group raw usage rows into sorted array of { key, label, total, cost } */
 const groupByMonth = (rows) => {
   const map = {};
   rows.forEach(r => {
@@ -35,7 +35,6 @@ const groupByMonth = (rows) => {
     let label = '';
 
     if (r.month_name) {
-      // label = String(r.month_name).split(' ')[0];
       label = r.month_name;
     } else if (key) {
       const [y, m] = key.split('-').map(Number);
@@ -54,26 +53,36 @@ const groupByMonth = (rows) => {
   return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
 };
 
-const calculateUtilityBreakdown = (connections) => {
+/**
+ * FIX: Calculate breakdown from allUsageByConnection (a map of connectionId → rows[])
+ * instead of relying on c.unitsUsed from the connections endpoint, which is always null.
+ * We sum units_logged across all months for each connection, then group by utility type.
+ */
+const calculateUtilityBreakdown = (connections, allUsageByConnection) => {
   const totals = { electricity: 0, water: 0, gas: 0 };
+
   connections.forEach(c => {
     const tag = normalizeUtilityTag(c.utility);
-    if (tag && totals[tag] !== undefined) totals[tag] += parseFloat(c.unitsUsed || 0);
+    if (!tag) return;
+    const rows = allUsageByConnection[c.id] || [];
+    const sum = rows.reduce((s, r) => s + parseFloat(r.units_logged || 0), 0);
+    totals[tag] += sum;
   });
+
   return Object.entries(UTILITY_CONFIG).map(([key, cfg]) => ({
-    name: cfg.label,
+    name:  cfg.label,
     value: Math.round(totals[key] * 10) / 10,
     color: cfg.color,
   })).filter(d => d.value > 0);
 };
 
 const prepareComparisonData = (data, period) => {
-  const months = groupByMonth(data);
+  const months   = groupByMonth(data);
   const current  = months.slice(-period);
   const previous = months.slice(-period * 2, -period);
   const len = Math.max(current.length, previous.length);
   return Array.from({ length: len }, (_, i) => ({
-    month:    (current[i]  || previous[i] || {}).label || '',
+    month:    (current[i] || previous[i] || {}).label || '',
     current:  current[i]  ? Math.round(current[i].total  * 10) / 10 : null,
     previous: previous[i] ? Math.round(previous[i].total * 10) / 10 : null,
   }));
@@ -98,7 +107,6 @@ const calcTrend = (compData) => {
 // ── Sub-components ────────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
-  
   return (
     <div style={{
       backgroundColor: '#111111',
@@ -119,23 +127,18 @@ const CustomTooltip = ({ active, payload, label }) => {
         {label}
       </p>
       {payload.map((entry, index) => (
-        <div key={index} style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div key={index} style={{
+          display: 'flex',
+          alignItems: 'center',
           gap: '8px',
-          marginBottom: index < payload.length - 1 ? '6px' : '0'
+          marginBottom: index < payload.length - 1 ? '6px' : '0',
         }}>
           <div style={{
-            width: '8px',
-            height: '8px',
+            width: '8px', height: '8px',
             borderRadius: '50%',
             backgroundColor: entry.color,
           }} />
-          <span style={{
-            fontFamily: 'Outfit, sans-serif',
-            fontSize: '13px',
-            color: '#E8E8E8',
-          }}>
+          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '13px', color: '#E8E8E8' }}>
             {(() => {
               const n = typeof entry.name === 'string' ? entry.name : '';
               const display = n ? (n.charAt(0).toUpperCase() + n.slice(1)) : n;
@@ -211,17 +214,19 @@ const DonutChart = ({ data, accentColor }) => {
   const [activeIndex, setActiveIndex] = useState(null);
   const total = data.reduce((s, d) => s + d.value, 0);
 
-  const hovered = activeIndex !== null ? data[activeIndex] : null;
+  const hovered     = activeIndex !== null ? data[activeIndex] : null;
   const centerValue = hovered
     ? `${((hovered.value / total) * 100).toFixed(1)}%`
     : Math.round(total).toLocaleString();
-  const centerLabel = hovered ? hovered.name : 'total';
+  const centerLabel = hovered ? hovered.name  : 'total';
   const centerColor = hovered ? hovered.color : '#E8E8E8';
 
   return (
     <ChartCard accentColor={accentColor} title="Utility Breakdown">
       {data.length === 0 ? (
-        <div className="flex items-center justify-center h-48 text-sub font-mono text-[10px]">No data available</div>
+        <div className="flex items-center justify-center h-48 text-sub font-mono text-[10px]">
+          No data available
+        </div>
       ) : (
         <div className="flex items-center gap-8">
           <div style={{ width: 200, height: 200, flexShrink: 0 }}>
@@ -248,13 +253,24 @@ const DonutChart = ({ data, accentColor }) => {
               <text x={100} y={100} textAnchor="middle" dominantBaseline="central">
                 <tspan
                   x={100} dy="-6"
-                  style={{ fontFamily: 'Outfit', fontSize: hovered ? 20 : 18, fill: centerColor, fontWeight: 600, transition: 'all 0.2s' }}
+                  style={{
+                    fontFamily: 'Outfit',
+                    fontSize: hovered ? 20 : 18,
+                    fill: centerColor,
+                    fontWeight: 600,
+                    transition: 'all 0.2s',
+                  }}
                 >
                   {centerValue}
                 </tspan>
                 <tspan
                   x={100} dy="18"
-                  style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, fill: 'rgba(232,232,232,0.45)', textTransform: 'uppercase' }}
+                  style={{
+                    fontFamily: 'IBM Plex Mono',
+                    fontSize: 9,
+                    fill: 'rgba(232,232,232,0.45)',
+                    textTransform: 'uppercase',
+                  }}
                 >
                   {centerLabel}
                 </tspan>
@@ -292,7 +308,9 @@ const ComparisonLineChart = ({ data, period, setPeriod, color }) => {
       right={
         <div className="flex items-center gap-3">
           {trend !== null && (
-            <span className={`flex items-center gap-1 font-mono text-[10px] ${trend < 0 ? 'text-status-active' : 'text-status-warning'}`}>
+            <span className={`flex items-center gap-1 font-mono text-[10px] ${
+              trend < 0 ? 'text-status-active' : 'text-status-warning'
+            }`}>
               {trend < 0 ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
               {Math.abs(trend).toFixed(1)}%
             </span>
@@ -302,7 +320,9 @@ const ComparisonLineChart = ({ data, period, setPeriod, color }) => {
       }
     >
       {data.length === 0 ? (
-        <div className="flex items-center justify-center h-[300px] text-sub font-mono text-[10px]">No data available</div>
+        <div className="flex items-center justify-center h-[300px] text-sub font-mono text-[10px]">
+          No data available
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -313,38 +333,31 @@ const ComparisonLineChart = ({ data, period, setPeriod, color }) => {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-            <XAxis dataKey="month" stroke="rgba(232,232,232,0.45)" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} />
-            <YAxis stroke="rgba(232,232,232,0.45)" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="month"
+              stroke="rgba(232,232,232,0.45)"
+              tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+              axisLine={false} tickLine={false}
+            />
+            <YAxis
+              stroke="rgba(232,232,232,0.45)"
+              tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+              axisLine={false} tickLine={false}
+            />
             <Tooltip content={<CustomTooltip />} />
             <Line
-              type="monotone"
-              dataKey="previous"
-              stroke="rgba(232,232,232,0.25)"
-              strokeWidth={1.5}
-              strokeDasharray="5 5"
-              dot={false}
-              activeDot={{
-                r: 4,
-                fill: 'rgba(232,232,232,0.5)',
-              }}
-              animationDuration={600}
-              animationEasing="ease-out"
+              type="monotone" dataKey="previous"
+              stroke="rgba(232,232,232,0.25)" strokeWidth={1.5}
+              strokeDasharray="5 5" dot={false}
+              activeDot={{ r: 4, fill: 'rgba(232,232,232,0.5)' }}
+              animationDuration={600} animationEasing="ease-out"
               connectNulls={true}
             />
             <Line
-              type="monotone"
-              dataKey="current"
-              stroke={color}
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{
-                r: 6,
-                fill: color,
-                stroke: '#111',
-                strokeWidth: 2,
-              }}
-              animationDuration={600}
-              animationEasing="ease-out"
+              type="monotone" dataKey="current"
+              stroke={color} strokeWidth={2.5} dot={false}
+              activeDot={{ r: 6, fill: color, stroke: '#111', strokeWidth: 2 }}
+              animationDuration={600} animationEasing="ease-out"
               connectNulls={true}
             />
           </LineChart>
@@ -362,7 +375,9 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
     right={<PeriodToggle period={period} setPeriod={setPeriod} />}
   >
     {data.length === 0 ? (
-      <div className="flex items-center justify-center h-[280px] text-sub font-mono text-[10px]">No data available</div>
+      <div className="flex items-center justify-center h-[280px] text-sub font-mono text-[10px]">
+        No data available
+      </div>
     ) : (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -373,8 +388,18 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-          <XAxis dataKey="month" stroke="rgba(232,232,232,0.45)" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} />
-          <YAxis stroke="rgba(232,232,232,0.45)" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} unit={unit ? ` ${unit}` : ''} />
+          <XAxis
+            dataKey="month"
+            stroke="rgba(232,232,232,0.45)"
+            tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+            axisLine={false} tickLine={false}
+          />
+          <YAxis
+            stroke="rgba(232,232,232,0.45)"
+            tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+            axisLine={false} tickLine={false}
+            unit={unit ? ` ${unit}` : ''}
+          />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
           <Bar
             name={`Usage (${unit || 'units'})`}
@@ -382,9 +407,7 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
             fill={color}
             activeBar={{ fill: color, fillOpacity: 0.75, radius: [4, 4, 0, 0] }}
             radius={[4, 4, 0, 0]}
-            animationDuration={500}
-            animationEasing="ease-out"
-            animationBegin={0}
+            animationDuration={500} animationEasing="ease-out" animationBegin={0}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -394,50 +417,64 @@ const MonthlyBarChart = ({ data, period, setPeriod, color, unit }) => (
 
 // ── Main component ────────────────────────────────────────────────────────────
 const UsageHistory = () => {
-  const [loading, setLoading] = useState(true);
-  const [connections, setConnections] = useState([]);
-  const [usageData, setUsageData] = useState([]);
+  const [loading, setLoading]                   = useState(true);
+  const [connections, setConnections]           = useState([]);
   const [selectedConnection, setSelectedConnection] = useState(null);
-  const [period, setPeriod] = useState(6);
+  const [usageData, setUsageData]               = useState([]);
+  // FIX: store usage for ALL connections so the donut can aggregate across utilities
+  const [allUsageByConnection, setAllUsageByConnection] = useState({});
+  const [period, setPeriod]                     = useState(6);
 
+  // Fetch usage for a single connection and update the selected-connection view
   const fetchUsageData = useCallback(async (connectionId) => {
-    if (!connectionId) {
-      setUsageData([]);
-      setLoading(false);
-      return;
-    }
+    if (!connectionId) { setUsageData([]); return; }
     try {
-      setLoading(true);
       const res = await getConsumerUsage({ granularity: 'month', connection_id: connectionId });
-      const data = res.data;
-      setUsageData(Array.isArray(data) ? data : []);
+      setUsageData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to fetch usage data:', err);
       setUsageData([]);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // On mount: fetch connections, then fetch usage for ALL of them in parallel
   useEffect(() => {
-    const fetchConnections = async () => {
+    const fetchAll = async () => {
       try {
         setLoading(true);
-        const res = await getConsumerConnections();
-        const data = res.data;
 
-        const normalized = Array.isArray(data)
-          ? data.map(c => ({
-              id: c.connection_id,
-              name: c.connection_name,
-              utility: c.utility_tag,
-              unit: c.unit_of_measurement,
-              unitsUsed: c.units_used,
-            }))
-          : [];
-
+        // 1. Get connection list
+        const connRes = await getConsumerConnections();
+        const raw = Array.isArray(connRes.data) ? connRes.data : [];
+        const normalized = raw.map(c => ({
+          id:      c.connection_id,
+          name:    c.connection_name,
+          utility: c.utility_tag,
+          unit:    c.unit_of_measurement,
+        }));
         setConnections(normalized);
-        setSelectedConnection(prev => prev ?? normalized[0]?.id ?? null);
+
+        // 2. Fetch usage for every connection in parallel
+        // FIX: this replaces relying on c.units_used (which is always null/0
+        // from the connections endpoint) for the breakdown calculation.
+        const usageMap = {};
+        await Promise.all(
+          normalized.map(async (c) => {
+            try {
+              const res = await getConsumerUsage({ granularity: 'month', connection_id: c.id });
+              usageMap[c.id] = Array.isArray(res.data) ? res.data : [];
+            } catch {
+              usageMap[c.id] = [];
+            }
+          })
+        );
+        setAllUsageByConnection(usageMap);
+
+        // 3. Pre-select first connection and set its usage for the charts
+        const firstId = normalized[0]?.id ?? null;
+        setSelectedConnection(prev => prev ?? firstId);
+        if (firstId) setUsageData(usageMap[firstId] || []);
+
       } catch (err) {
         console.error('Failed to fetch connections:', err);
         setConnections([]);
@@ -446,21 +483,30 @@ const UsageHistory = () => {
         setLoading(false);
       }
     };
-    fetchConnections();
+    fetchAll();
   }, []);
 
+  // When user switches tab, pull usage from the already-fetched cache
   useEffect(() => {
-    if (selectedConnection) fetchUsageData(selectedConnection);
-  }, [selectedConnection, fetchUsageData]);
+    if (!selectedConnection || Object.keys(allUsageByConnection).length === 0) return;
+    if (allUsageByConnection[selectedConnection]) {
+      // Already cached — use it instantly, no extra network call
+      setUsageData(allUsageByConnection[selectedConnection]);
+    } else {
+      // Not cached yet (edge case) — fetch on demand
+      fetchUsageData(selectedConnection);
+    }
+  }, [selectedConnection, allUsageByConnection, fetchUsageData]);
 
   if (loading) return <LoadingSkeleton />;
 
-  const activeConn = connections.find(c => c.id === selectedConnection);
+  const activeConn    = connections.find(c => c.id === selectedConnection);
   const activeUtility = normalizeUtilityTag(activeConn?.utility) || 'electricity';
-  const activeColor = UTILITY_CONFIG[activeUtility].color;
-  const activeUnit  = activeConn?.unit || usageData.find(r => r.unit_of_measurement)?.unit_of_measurement || '';
+  const activeColor   = UTILITY_CONFIG[activeUtility].color;
+  const activeUnit    = activeConn?.unit || usageData.find(r => r.unit_of_measurement)?.unit_of_measurement || '';
 
-  const breakdownData  = calculateUtilityBreakdown(connections);
+  // FIX: pass allUsageByConnection so breakdown aggregates real usage across all utilities
+  const breakdownData  = calculateUtilityBreakdown(connections, allUsageByConnection);
   const comparisonData = prepareComparisonData(usageData, period);
   const monthlyData    = prepareMonthlyData(usageData, period);
 
