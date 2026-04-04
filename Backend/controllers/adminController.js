@@ -26,6 +26,30 @@ const ALLOWED_TABLES = {
   tariff: 'tariff_id'
 };
 
+const parseAddressText = (addressText = '') => {
+  const parts = String(addressText)
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  // Expected format: house_num, street_name, [landmark], [region-postal]
+  const house_num = parts[0] || null;
+  const street_name = parts[1] || null;
+
+  if (!house_num || !street_name) return null;
+
+  let landmark = null;
+  if (parts.length > 2) {
+    const trailing = parts[parts.length - 1];
+    const looksLikeRegionPostal = /.+\s*-\s*\d{3,10}$/.test(trailing);
+    landmark = looksLikeRegionPostal
+      ? (parts.slice(2, -1).join(', ') || null)
+      : (parts.slice(2).join(', ') || null);
+  }
+
+  return { house_num, street_name, landmark };
+};
+
 const getTables = async (req, res) => {
   try {
     const tables = [
@@ -563,21 +587,159 @@ const updateApplicationStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'status is required' });
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const reviewed_by = req.user.person_id;
-    const result = await pool.query(
+    const appResult = await client.query(
+      `SELECT application_id, consumer_id, utility_id, region_id, requested_connection_type, payment_type, address
+       FROM connection_application
+       WHERE application_id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (appResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    const application = appResult.rows[0];
+    let connection = null;
+
+    if (String(status).toLowerCase() === 'approved') {
+      const tariffResult = await client.query(
+        `SELECT tariff_id
+         FROM tariff
+         WHERE utility_id = $1
+           AND COALESCE(is_active, TRUE) = TRUE
+           AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+         ORDER BY effective_from DESC, tariff_id DESC
+         LIMIT 1`,
+        [application.utility_id]
+      );
+
+      if (tariffResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'No active tariff found for this utility' });
+      }
+
+      const parsedAddress = parseAddressText(application.address);
+      if (!parsedAddress) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Invalid address format in application' });
+      }
+
+      let addressId;
+      const existingAddress = await client.query(
+        `SELECT address_id
+         FROM address
+         WHERE region_id = $1
+           AND LOWER(TRIM(house_num)) = LOWER(TRIM($2::varchar))
+           AND LOWER(TRIM(street_name)) = LOWER(TRIM($3::varchar))
+           AND LOWER(TRIM(COALESCE(landmark, ''::varchar))) = LOWER(TRIM(COALESCE($4::varchar, ''::varchar)))
+         LIMIT 1`,
+        [
+          application.region_id,
+          parsedAddress.house_num,
+          parsedAddress.street_name,
+          parsedAddress.landmark,
+        ]
+      );
+
+      if (existingAddress.rows.length > 0) {
+        addressId = existingAddress.rows[0].address_id;
+      } else {
+        const insertedAddress = await client.query(
+          `INSERT INTO address (region_id, house_num, street_name, landmark)
+           VALUES ($1, $2, $3, $4)
+           RETURNING address_id`,
+          [
+            application.region_id,
+            parsedAddress.house_num,
+            parsedAddress.street_name,
+            parsedAddress.landmark,
+          ]
+        );
+        addressId = insertedAddress.rows[0].address_id;
+      }
+
+      const meterResult = await client.query(
+        `SELECT m.meter_id
+         FROM meter m
+         WHERE m.address_id = $1
+           AND NOT EXISTS (
+             SELECT 1
+             FROM utility_connection uc
+             WHERE uc.meter_id = m.meter_id
+               AND uc.connection_status NOT ILIKE 'DISCONNECTED'
+           )
+         ORDER BY m.meter_id
+         LIMIT 1`,
+        [addressId]
+      );
+
+      const utilityResult = await client.query(
+        `SELECT utility_type FROM utility WHERE utility_id = $1`,
+        [application.utility_id]
+      );
+      const utilityType = utilityResult.rows[0]?.utility_type || 'GENERAL';
+
+      let meterId;
+      if (meterResult.rows.length > 0) {
+        meterId = meterResult.rows[0].meter_id;
+      } else {
+        const createdMeter = await client.query(
+          `INSERT INTO meter (address_id, meter_type, is_active)
+           VALUES ($1, $2, FALSE)
+           RETURNING meter_id`,
+          [addressId, String(utilityType).toUpperCase().slice(0, 20)]
+        );
+        meterId = createdMeter.rows[0].meter_id;
+      }
+
+      const connectionResult = await client.query(
+        `INSERT INTO utility_connection
+          (tariff_id, consumer_id, meter_id, payment_type, connection_type, connection_status, connection_date, connection_name)
+         VALUES ($1, $2, $3, $4, $5, 'Active', CURRENT_DATE, $6)
+         RETURNING *`,
+        [
+          tariffResult.rows[0].tariff_id,
+          application.consumer_id,
+          meterId,
+          application.payment_type,
+          application.requested_connection_type,
+          utilityType,
+        ]
+      );
+      connection = connectionResult.rows[0];
+
+      await client.query(`UPDATE meter SET is_active = TRUE WHERE meter_id = $1`, [meterId]);
+    }
+
+    const updateResult = await client.query(
       `UPDATE connection_application
-      SET status        = $1,
-          reviewed_by   = $2,
-          review_date   = CURRENT_DATE
-          ${status === 'Approved' ? ', approval_date = CURRENT_DATE' : ''}
-      WHERE application_id = $3 RETURNING *`,
+       SET status        = $1,
+           reviewed_by   = $2,
+           review_date   = CURRENT_DATE,
+           approval_date = CASE WHEN LOWER($1::varchar) = 'approved' THEN CURRENT_DATE ELSE approval_date END
+       WHERE application_id = $3
+       RETURNING *`,
       [status, reviewed_by, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Application not found' });
-    res.json(result.rows[0]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      ...updateResult.rows[0],
+      created_connection: connection,
+    });
   } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('updateApplicationStatus error:', err);
     res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
   }
 };
 

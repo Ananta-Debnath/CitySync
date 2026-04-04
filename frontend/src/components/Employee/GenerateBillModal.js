@@ -4,7 +4,7 @@ import { fonts } from '../../theme';
 
 const inputStyle = (t) => ({
   width: '100%', padding: '9px 12px', borderRadius: 8,
-  border: `1px solid ${t.border}`, background: t.bgInputs,
+  border: `1px solid ${t.border}`, background: t.bgHover,
   color: t.text, fontFamily: fonts.ui, fontSize: 13,
   boxSizing: 'border-box'
 });

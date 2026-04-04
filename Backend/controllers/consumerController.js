@@ -386,6 +386,7 @@ const getApplications = async (req, res) => {
         ca.application_date,
         ca.status,
         ca.requested_connection_type,
+        ca.payment_type,
         ca.address,
         ca.review_date,
         ca.approval_date,
@@ -411,7 +412,7 @@ const getApplications = async (req, res) => {
 }
 
 const submitApplication = async (req, res) => {
-  const { utility_id, region_id, requested_connection_type, address, priority } = req.body;
+  const { utility_id, region_id, requested_connection_type, address, priority, payment_type } = req.body;
 
   if (!utility_id || !region_id || !requested_connection_type || !address)
     return res.status(400).json({ error: 'utility_id, region_id, requested_connection_type and address are required' });
@@ -419,10 +420,10 @@ const submitApplication = async (req, res) => {
   try {
     const result = await pool.query(`
       INSERT INTO connection_application
-        (consumer_id, utility_id, region_id, requested_connection_type, address, priority, status, application_date)
-      VALUES ($1, $2, $3, $4, $5, $6, 'Pending', CURRENT_DATE)
+        (consumer_id, utility_id, region_id, requested_connection_type, payment_type, address, priority, status, application_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending', CURRENT_DATE)
       RETURNING *
-    `, [req.user.person_id, utility_id, region_id, requested_connection_type, address, priority || 'Normal']);
+    `, [req.user.person_id, utility_id, region_id, requested_connection_type, payment_type, address, priority || 'Normal']);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -541,9 +542,9 @@ const addPaymentMethod = async (req, res) => {
     const result = await pool.query(q, params);
     const methodId = result.rows[0].method_id;
     res.status(201).json({ message: 'Payment method added', method_id: methodId });
-  } catch (error) {
+  } catch (err) {
     console.error(err);
-    res.status(400).json({ error: err.message || 'Failed to add payment method' });
+    res.status(400).json({ error: 'Failed to add payment method' });
   }
   
 
