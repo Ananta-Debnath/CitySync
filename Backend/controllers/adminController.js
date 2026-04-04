@@ -1349,7 +1349,7 @@ const getWorkerAnalytics = async (req, res) => {
               WHEN c.status = 'Resolved'
                AND c.assignment_date IS NOT NULL
                AND c.resolution_date IS NOT NULL
-              THEN EXTRACT(EPOCH FROM (c.resolution_date - c.assignment_date)) / 3600
+              THEN EXTRACT(EPOCH FROM (c.resolution_date::timestamp - c.assignment_date::timestamp)) / 3600
             END), 1
           )::float                                              AS avg_hours,
           COUNT(DISTINCT mr.reading_id)                        AS readings

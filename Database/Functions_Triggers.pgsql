@@ -208,6 +208,7 @@ BEGIN
     SELECT fixed_charge_id, amount, timeframe
     FROM fixed_charge_owed
     WHERE prepaid_account_id = p_account_id
+      AND amount > 0
     ORDER BY timeframe
     FOR UPDATE
   LOOP
@@ -248,6 +249,23 @@ BEGIN
 END
 $$;
 
+CREATE OR REPLACE FUNCTION get_region_utility_connection_count(p_region_id INTEGER, p_utility_id INTEGER)
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(uc.connection_id)
+        FROM utility_connection uc
+        JOIN meter m ON uc.meter_id = m.meter_id
+        JOIN address a ON m.address_id = a.address_id
+        JOIN tariff t ON uc.tariff_id = t.tariff_id
+        WHERE a.region_id = p_region_id
+          AND t.utility_id = p_utility_id
+    );
+END;
+$$;
+
 
 -- TRIGGERS
 -- AFTER INSERT trigger to create prepaid account for new prepaid connection
@@ -279,26 +297,26 @@ AFTER INSERT ON utility_connection
 FOR EACH ROW
 EXECUTE FUNCTION create_prepaid_account_after_insert();
 
--- TRIGGER to delete fixed_charge_owed when amount is fully paid
-CREATE OR REPLACE FUNCTION remove_fully_paid_fixed_charge() RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    DELETE FROM fixed_charge_owed
-    WHERE fixed_charge_id = NEW.fixed_charge_id
-      AND prepaid_account_id = NEW.prepaid_account_id
-      AND timeframe = NEW.timeframe;
+-- -- TRIGGER to delete fixed_charge_owed when amount is fully paid
+-- CREATE OR REPLACE FUNCTION remove_fully_paid_fixed_charge() RETURNS trigger
+-- LANGUAGE plpgsql
+-- AS $$
+-- BEGIN
+--     DELETE FROM fixed_charge_owed
+--     WHERE fixed_charge_id = NEW.fixed_charge_id
+--       AND prepaid_account_id = NEW.prepaid_account_id
+--       AND timeframe = NEW.timeframe;
 
-    RETURN NEW;
-END;
-$$;
+--     RETURN NEW;
+-- END;
+-- $$;
 
--- DROP TRIGGER IF EXISTS remove_fully_paid_fixed_charge_trg ON fixed_charge_owed;
-CREATE TRIGGER remove_fully_paid_fixed_charge_trg
-AFTER UPDATE OF amount ON fixed_charge_owed
-FOR EACH ROW
-WHEN (NEW.amount <= 0)
-EXECUTE FUNCTION remove_fully_paid_fixed_charge();
+-- -- DROP TRIGGER IF EXISTS remove_fully_paid_fixed_charge_trg ON fixed_charge_owed;
+-- CREATE TRIGGER remove_fully_paid_fixed_charge_trg
+-- AFTER UPDATE OF amount ON fixed_charge_owed
+-- FOR EACH ROW
+-- WHEN (NEW.amount <= 0)
+-- EXECUTE FUNCTION remove_fully_paid_fixed_charge();
 
 
 -- BEFORE INSERT trigger to update balance for prepaid transactions and suspend connection if balance goes negative.
@@ -658,25 +676,6 @@ BEGIN
 END;
 $$;
 
-
-
-
-CREATE OR REPLACE FUNCTION get_region_utility_connection_count(p_region_id INTEGER, p_utility_id INTEGER)
-RETURNS BIGINT
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RETURN (
-        SELECT COUNT(uc.connection_id)
-        FROM utility_connection uc
-        JOIN meter m ON uc.meter_id = m.meter_id
-        JOIN address a ON m.address_id = a.address_id
-        JOIN tariff t ON uc.tariff_id = t.tariff_id
-        WHERE a.region_id = p_region_id
-          AND t.utility_id = p_utility_id
-    );
-END;
-$$;
 
 
 --------VIEWS----------

@@ -13,7 +13,7 @@ AvatarContext api  ---DONE
 NEW CONNECTIONS APPLICATION NOT WORKING   ---FIXED
 
 Gpay grad change
-VAT
+VAT  ---DONE
 
 ---REG---
 postal code needed?? ---DONE

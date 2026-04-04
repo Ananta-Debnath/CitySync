@@ -36,13 +36,13 @@ BEGIN
     INSERT INTO tariff (tariff_id, utility_id, tariff_name, consumer_category, billing_method, effective_from, vat_rate, is_active)
     VALUES (101, v_utility_id, 'LT-A', 'Residential', 'Slab', '2024-02-29', 5.00, true);
 
-    INSERT INTO tariff_slab (tariff_id, slab_num, unit_from, unit_to, rate_per_unit)
-    VALUES (101, 1, 0, 75, 5.26),
-           (101, 2, 76, 200, 7.2),
-           (101, 3, 201, 300, 7.59),
-           (101, 4, 301, 400, 8.02),
-           (101, 5, 401, 600, 12.67),
-           (101, 6, 601, NULL, 14.61);
+    INSERT INTO tariff_slab (tariff_id, slab_num, charge_type, unit_from, unit_to, rate_per_unit)
+    VALUES (101, 1, 'Flat', 0, 75, 5.26),
+           (101, 2, 'Flat', 76, 200, 7.2),
+           (101, 3, 'Flat', 201, 300, 7.59),
+           (101, 4, 'Flat', 301, 400, 8.02),
+           (101, 5, 'Flat', 401, 600, 12.67),
+           (101, 6, 'Flat', 601, NULL, 14.61);
 
     INSERT INTO fixed_charge (fixed_charge_id, tariff_id, charge_name, charge_amount, charge_frequency, is_mandatory)
     VALUES (1011, 101, 'Meter Rent', 25.00, 'Monthly', true),
@@ -83,7 +83,7 @@ BEGIN
     INSERT INTO tariff (tariff_id, utility_id, tariff_name, consumer_category, billing_method, effective_from, vat_rate, is_active)
     VALUES (201, v_utility_id, 'W-1', 'Residential', 'Slab', '2024-02-29', 5.00, true);
 
-    INSERT INTO tariff_slab (tariff_id, slab_num, unit_from, rate_per_unit)
-    VALUES (201, 1, 0, 15.00);
+    INSERT INTO tariff_slab (tariff_id, slab_num, charge_type, unit_from, unit_to, rate_per_unit)
+    VALUES (201, 1, 'Flat', 0, 15, 15.00);
 END
 $$;

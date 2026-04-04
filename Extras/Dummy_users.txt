@@ -1,2 +1,3 @@
 john.doe@example.com - 12345678 - Consumer
 john.doe@example.com - employee - Employee
+john.doe@example.com - worker - Field-Worker
