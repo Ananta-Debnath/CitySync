@@ -4,7 +4,7 @@ import Select from 'react-select';
 import { submitConsumerApplication, getRegions, getMyProfile, getPublicUtilityNames, getRegionAvailability } from '../../services/api';
 
 const NewApplicationModal = ({ onClose, onSuccess }) => {
-  const [form, setForm] = useState({ requested_connection_type: 'Residential', region_id: '', address: '', utility_id: '', priority: 'Normal' });
+  const [form, setForm] = useState({ requested_connection_type: 'Residential', payment_type: 'Postpaid', region_id: '', address: '', utility_id: '', priority: 'Normal' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [myRegion, setMyRegion] = useState(null);
@@ -165,6 +165,23 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
                             onClick={() => setForm(f => ({ ...f, requested_connection_type: type }))}
                             className={`flex-1 py-3.5 rounded-2xl border text-xs font-bold transition-all ${
                                 form.requested_connection_type === type 
+                                ? 'bg-white/10 text-txt border-lime/40' 
+                                : 'bg-white/5 border-white/5 text-txt/20'
+                            }`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
+                <label className="text-[10px] font-mono uppercase tracking-widest text-txt/30 mb-4 block">3. Payment Type</label>
+                <div className="flex gap-3 mb-6">
+                    {['Prepaid', 'Postpaid'].map(type => (
+                        <button
+                            key={type}
+                            onClick={() => setForm(f => ({ ...f, payment_type: type }))}
+                            className={`flex-1 py-3.5 rounded-2xl border text-xs font-bold transition-all ${
+                                form.payment_type === type 
                                 ? 'bg-white/10 text-txt border-lime/40' 
                                 : 'bg-white/5 border-white/5 text-txt/20'
                             }`}

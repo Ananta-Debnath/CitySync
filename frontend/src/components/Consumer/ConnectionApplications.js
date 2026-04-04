@@ -93,14 +93,18 @@ const AppCard = ({ app }) => {
           <p className="text-xs font-medium text-txt/80">{app.requested_connection_type}</p>
         </div>
         <div>
+          <p className="text-[9px] font-mono uppercase tracking-widest text-txt/30 mb-1">Payment Type</p>
+          <p className="text-xs font-medium text-txt/80">{app.payment_type}</p>
+        </div>
+        <div>
+          <p className="text-[9px] font-mono uppercase tracking-widest text-txt/30 mb-1">Service Address</p>
+          <p className="text-xs font-medium text-txt/80 truncate">{app.address}, {app.region_name}</p>
+        </div>
+        <div>
           <p className="text-[9px] font-mono uppercase tracking-widest text-txt/30 mb-1">Priority</p>
           <p className={`text-xs font-bold ${app.priority === 'High' ? 'text-orange' : app.priority === 'Urgent' ? 'text-red-500' : 'text-txt/60'}`}>
             {app.priority}
           </p>
-        </div>
-        <div className="col-span-2">
-          <p className="text-[9px] font-mono uppercase tracking-widest text-txt/30 mb-1">Service Address</p>
-          <p className="text-xs font-medium text-txt/80 truncate">{app.address}, {app.region_name}</p>
         </div>
       </div>
 

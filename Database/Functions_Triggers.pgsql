@@ -120,29 +120,83 @@ BEGIN
     UPDATE payment_method SET is_default = FALSE WHERE consumer_id = p_consumer_id;
   END IF;
 
-  INSERT INTO payment_method(method_name, consumer_id, is_default)
-    VALUES (p_method_name, p_consumer_id, COALESCE(p_set_default, FALSE))
-    RETURNING method_id INTO v_method_id;
-
   IF p_method_name = 'bank' THEN
     SELECT bank_id INTO v_bank_id FROM bank_name WHERE bank_name = p_bank_name;
     IF v_bank_id IS NULL THEN
       RAISE EXCEPTION 'Bank not found: %', p_bank_name USING ERRCODE = 'P0001';
     END IF;
-    INSERT INTO bank(method_id, bank_id, account_num) VALUES (v_method_id, v_bank_id, p_account_num);
 
+    SELECT pm.method_id INTO v_method_id
+    FROM bank b
+    JOIN payment_method pm ON b.method_id = pm.method_id
+    WHERE b.account_num = p_account_num
+      AND b.bank_id = v_bank_id
+      AND (pm.consumer_id = p_consumer_id OR pm.consumer_id IS NULL);
+
+    IF v_method_id IS NOT NULL THEN
+      UPDATE payment_method 
+      SET is_default = COALESCE(p_set_default, FALSE),
+          consumer_id = COALESCE(p_consumer_id, consumer_id)
+      WHERE method_id = v_method_id;
+    ELSE
+      INSERT INTO payment_method(method_name, consumer_id, is_default)
+      VALUES (p_method_name, p_consumer_id, COALESCE(p_set_default, FALSE))
+      RETURNING method_id INTO v_method_id;
+      INSERT INTO bank(method_id, bank_id, account_num) VALUES (v_method_id, v_bank_id, p_account_num);
+    END IF;
+    
   ELSIF p_method_name = 'mobile_banking' THEN
     SELECT provider_id INTO v_provider_id FROM mobile_banking_provider WHERE provider_name = p_provider_name;
     IF v_provider_id IS NULL THEN
       RAISE EXCEPTION 'Provider not found: %', p_provider_name USING ERRCODE = 'P0002';
+    ELSIF p_phone_num IS NULL OR NOT (p_phone_num ~ '(^|[^0-9])[0-9]{11}([^0-9]|$)') THEN
+      RAISE EXCEPTION 'Phone number must contain an 11-digit number for mobile banking method' USING ERRCODE = 'P0003';
     END IF;
-    INSERT INTO mobile_banking(method_id, provider_id, phone_num) VALUES (v_method_id, v_provider_id, p_phone_num);
+
+    SELECT pm.method_id INTO v_method_id
+    FROM mobile_banking mb
+    JOIN payment_method pm ON mb.method_id = pm.method_id
+    WHERE mb.phone_num = p_phone_num
+      AND mb.provider_id = v_provider_id
+      AND (pm.consumer_id = p_consumer_id OR pm.consumer_id IS NULL);
+
+    IF v_method_id IS NOT NULL THEN
+      UPDATE payment_method 
+      SET is_default = COALESCE(p_set_default, FALSE),
+          consumer_id = COALESCE(p_consumer_id, consumer_id)
+      WHERE method_id = v_method_id;
+    ELSE
+      INSERT INTO payment_method(method_name, consumer_id, is_default)
+      VALUES (p_method_name, p_consumer_id, COALESCE(p_set_default, FALSE))
+      RETURNING method_id INTO v_method_id;
+      INSERT INTO mobile_banking(method_id, provider_id, phone_num) VALUES (v_method_id, v_provider_id, p_phone_num);
+    END IF;
 
   ELSIF p_method_name = 'google_pay' THEN
-    INSERT INTO google_pay(method_id, email, phone_num) VALUES (v_method_id, p_google_account_email, p_phone_num);
+    IF p_google_account_email IS NULL OR p_google_account_email NOT ILIKE '%_@gmail.com' THEN
+      RAISE EXCEPTION 'Google account email must be provided for Google Pay method' USING ERRCODE = 'P0004';
+    END IF;
+
+    SELECT pm.method_id INTO v_method_id
+    FROM google_pay gp
+    JOIN payment_method pm ON gp.method_id = pm.method_id
+    WHERE gp.email = p_google_account_email
+      AND (pm.consumer_id = p_consumer_id OR pm.consumer_id IS NULL);
+    
+    IF v_method_id IS NOT NULL THEN
+      UPDATE payment_method 
+      SET is_default = COALESCE(p_set_default, FALSE),
+          consumer_id = COALESCE(p_consumer_id, consumer_id)
+      WHERE method_id = v_method_id;
+    ELSE
+      INSERT INTO payment_method(method_name, consumer_id, is_default)
+      VALUES (p_method_name, p_consumer_id, COALESCE(p_set_default, FALSE))
+      RETURNING method_id INTO v_method_id;
+      INSERT INTO google_pay(method_id, email, phone_num) VALUES (v_method_id, p_google_account_email, p_phone_num);
+    END IF;
 
   ELSE
-    RAISE EXCEPTION 'Invalid method_name: %', p_method_name USING ERRCODE = 'P0003';
+    RAISE EXCEPTION 'Invalid method_name: %', p_method_name USING ERRCODE = 'P0005';
   END IF;
 
   RETURN v_method_id;
@@ -564,8 +618,8 @@ BEGIN
       AND bp.bill_period_end >= p_period_start
       AND bp.bill_period_start <= p_period_end
   ) THEN
-    -- RAISE EXCEPTION 'Bill already exists for connection % and period % to %', p_connection_id, p_period_start, p_period_end;
-    RETURN;
+    RAISE EXCEPTION 'Bill already exists for connection % and period % to %', p_connection_id, p_period_start, p_period_end
+    USING ERRCODE = 'P0001';
   END IF;
 
   SELECT COALESCE(SUM(u.unit_used), 0)
@@ -595,8 +649,8 @@ BEGIN
   -- Early creation for reference
   INSERT INTO bill_document (connection_id, bill_type, bill_generation_date, energy_amount, subtotal,
                              vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
-  VALUES (p_connection_id, 'POSTPAID', v_bill_generation_date, v_energy_amount, 0,
-          v_vat_rate, 0, v_is_vat_exempt, 0, 'UNPAID')
+  VALUES (p_connection_id, 'POSTPAID', v_bill_generation_date, v_energy_amount, 1,
+          v_vat_rate, 1, v_is_vat_exempt, 2, 'UNPAID')
   RETURNING bill_document_id INTO v_bill_document_id;
 
   FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
@@ -608,6 +662,12 @@ BEGIN
   v_subtotal := ROUND(v_energy_amount + v_fixed_charge_total, 2);
   v_vat_amount := ROUND((v_subtotal * v_vat_rate) / 100.0, 2);
   v_total_amount := ROUND(v_subtotal + v_vat_amount, 2);
+
+  IF v_total_amount <= 0 THEN
+    RAISE EXCEPTION 'Calculated total amount is zero or negative for connection % and period % to %. Energy amount: %, Fixed charge total: %, VAT rate: %',
+      p_connection_id, p_period_start, p_period_end, v_energy_amount, v_fixed_charge_total, v_vat_rate
+      USING ERRCODE = 'P0002';
+  END IF;
   
   UPDATE bill_document
   SET subtotal = v_subtotal,

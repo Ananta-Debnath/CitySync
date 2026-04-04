@@ -38,6 +38,7 @@ const ApplicationReview = ({ application, onApprove, onReject }) => {
           {[
             ['Utility',  application.utility_type],
             ['Type',     application.requested_connection_type],
+            ['Payment',  application.payment_type],
             ['Priority', application.priority],
             ['Address',  application.address],
           ].map(([label, val]) => val && (
