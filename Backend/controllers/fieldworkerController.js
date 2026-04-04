@@ -50,10 +50,10 @@ const updateJobStatus = async (req, res) => {
     const result = await pool.query(
       `UPDATE complaint
       SET
-        status = $1,
-        remarks = COALESCE($2, remarks),
-        assignment_date = CASE WHEN $1 = 'In Progress' THEN CURRENT_TIMESTAMP ELSE assignment_date END,
-        resolution_date = CASE WHEN $1 = 'Resolved' THEN CURRENT_TIMESTAMP ELSE resolution_date END
+        status = $1::varchar,
+        remarks = COALESCE($2::varchar, remarks),
+        assignment_date = CASE WHEN $1::varchar = 'In Progress' THEN CURRENT_TIMESTAMP ELSE assignment_date END,
+        resolution_date = CASE WHEN $1::varchar = 'Resolved' THEN CURRENT_TIMESTAMP ELSE resolution_date END
       WHERE complaint_id = $3 AND assigned_to = $4
       RETURNING *`,
       [status, remarks || null, id, req.user.person_id]
@@ -72,8 +72,6 @@ const updateJobStatus = async (req, res) => {
     sendNotification(updatedComplaint.consumer_id, msg, dotColor);
 
     res.json({ message: 'Job status updated', data: updatedComplaint });
-
-    res.json({ message: 'Job status updated', data: result.rows[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

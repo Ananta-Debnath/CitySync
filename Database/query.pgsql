@@ -196,3 +196,6 @@ SELECT (date_trunc('month', CURRENT_DATE) - INTERVAL '1 month')::DATE AS previou
        ((date_trunc('month', CURRENT_DATE) - INTERVAL '1 month') + INTERVAL '1 month')::DATE AS end_;
 
 
+UPDATE complaint
+SET priority = 'Low'
+WHERE priority ILIKE 'High';

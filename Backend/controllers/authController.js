@@ -43,7 +43,7 @@ const login = async (req, res) => {
       return res.status(401).json({ error: "Invalid identifier or password" });
     }
 
-    // 3️⃣ Generate JWT
+    // Generate JWT
     const token = jwt.sign(
       {
         person_id: matchedUser.person_id,
