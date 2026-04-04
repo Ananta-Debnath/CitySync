@@ -1228,7 +1228,16 @@ function switchModal(type){
   setTimeout(()=>openModal(type),55);
 }
 function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeModal();
+  if (e.key === 'Enter') {
+    const activeModal = document.querySelector('.modal.active');
+    if (activeModal) {
+      const submitBtn = activeModal.querySelector('.btn-form');
+      if (submitBtn) submitBtn.click();
+    }
+  }
+});
 
 // Signup submit (functional)
 function getSignupValue(id){
@@ -1344,10 +1353,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Close and redirect to the correct dashboard
       closeModal();
-      const role = data?.user?.role;
+      const role = data?.role;
       const roleToPath = {
         employee: '/employee/dashboard',
-        field_worker: '/field-worker/dashboard',
+        field_worker: '/fieldworker/dashboard',
         consumer: '/consumer/dashboard',
       };
       window.parent.location.href = roleToPath[role] || '/consumer/dashboard';

@@ -1,4 +1,5 @@
 const pool = require("../db");
+const bcrypt = require('bcrypt');
 
 
 const getPerson = async (req, res) => {
@@ -107,6 +108,16 @@ const updatePassword = async (req, res) => {
     );
     const valid = await bcrypt.compare(current_password, result.rows[0].password_hashed);
     if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const existingPasswords = await pool.query(
+      `SELECT password_hashed FROM account WHERE person_id = $1`,
+      [req.user.person_id]
+    );
+    for (const row of existingPasswords.rows) {
+      if (await bcrypt.compare(new_password, row.password_hashed)) {
+        return res.status(402).json({ error: 'New password cannot be the same as any existing password' });
+      }
+    }
 
     const hashed = await bcrypt.hash(new_password, 10);
     await pool.query(

@@ -148,7 +148,7 @@ const ConsumerDashboard = () => {
   const elecUsage = data.connections.find(c => c.utility_tag === 'electricity')?.units_used || 0;
   const waterUsage = data.connections.find(c => c.utility_tag === 'water')?.units_used || 0;
   const gasUsage = data.connections.find(c => c.utility_tag === 'gas')?.units_used || 0;
-  const latestBill = data.bills[0] || { total_amount: 0, bill_status: 'N/A' };
+  const latestBill = data.bills[0] || { total_amount: 0, status: 'N/A' };
   const openComplaints = data.complaints.filter(c => c.status !== 'Resolved').length;
 
   return (
@@ -265,9 +265,9 @@ const ConsumerDashboard = () => {
         <div className="flex gap-[9px] h-[252px]">
           <BentoCard 
             tag="latest bill"
-            value={`৳ ${latestBill.amount}`}
-            sub={latestBill.bill_status === 'PAID' ? 'Paid' : 'Unpaid'}
-            subColor={latestBill.bill_status === 'PAID' ? '#44ff99' : '#ff4444'}
+            value={`৳ ${latestBill.total_amount}`}
+            sub={latestBill.status?.toLowerCase() === 'paid' ? 'Paid' : 'Unpaid'}
+            subColor={latestBill.status?.toLowerCase() === 'paid' ? '#44ff99' : '#ff4444'}
             bgImage="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&q=75"
             stripeColor="#FF9900"
             onClick={() => navigate('/consumer/bills')}

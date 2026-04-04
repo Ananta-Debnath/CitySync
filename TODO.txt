@@ -6,7 +6,7 @@ PASSWORD EYE ICON
 SHOW PASSWORD FOR LOGIN PAGE
 Forget Pass
 Edit Profile doesnt work
-Prevent same pass for employee and consumer
+Prevent same pass for employee and consumer  ---DONE
 
 AvatarContext api  ---DONE
 
@@ -21,14 +21,14 @@ postal code needed?? ---DONE
 ---DASHBOARD---
 Include connection name   ---DONE
 Active??   ---DONE
-bills showing unpaid?---
+bills showing unpaid?   ---FIXED
 
 ---CONNECTIONS---
 Include connection name  ---DONE
-Status naming--done
+Status naming      --done
 Each connection details  ---DONE   --Add tariff detail under a button
 Prepaid??  --DONE
-account balance will be red for less than zero--done
+account balance will be red for less than zero    --DONE
 
 ---BILLS---
 backend pay system   ---IMPORTANT    ---temporary fixed, needs more refurbishing
@@ -45,7 +45,7 @@ due and paid alternate  ---DONE
 Add more details
 fixed charge       ---DONE
 address     ---DONE
-Download PDF--cancelled
+Download PDF    --cancelled
 
 ---PAYMENTS---
 GPay - show email??  --DONE
@@ -74,7 +74,7 @@ Fix related connection  ---DONE
 
 ---PROFILE---
 change pass text field eye disappear after reclicking text box  --DONE
-the admin only thing???
+the admin only thing???  ---DONE
 Profile pic ---DONE
 move cloudinarything to backend??   --NOT POSSIBLE
 current balance???????????

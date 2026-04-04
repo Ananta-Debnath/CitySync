@@ -56,7 +56,7 @@ const login = async (req, res) => {
     res.json({
       // success: true,
       token,
-      // role: matchedUser.account_type,
+      role: matchedUser.account_type,
     });
 
   } catch (err) {
@@ -75,7 +75,7 @@ const register = async (req, res) => {
     password,
     houseNum,
     streetName,
-    regionId,
+    regionName,
     postalCode,
     dateOfBirth,
     gender,
@@ -85,7 +85,7 @@ const register = async (req, res) => {
 
   // Basic validation
   if (!firstName || !lastName || !nationalId || !phoneNumber || !email || !password || !houseNum || 
-      !streetName || !regionId || !postalCode || !dateOfBirth || !gender || !consumerType) {
+      !streetName || !regionName || !postalCode || !dateOfBirth || !gender || !consumerType) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -93,22 +93,22 @@ const register = async (req, res) => {
 
   // Check if region exists, create if not -- no create
   
-  // // Find regions that match the postal code and verify the provided region name
-  // let regionResult = await pool.query(
-  //   'SELECT region_id, region_name FROM region WHERE postal_code = $1',
-  //   [postalCode]
-  // );
+  // Find regions that match the postal code and verify the provided region name
+  let regionResult = await pool.query(
+    'SELECT region_id, region_name FROM region WHERE postal_code = $1',
+    [postalCode]
+  );
 
-  // if (!regionResult.rows || regionResult.rows.length === 0) {
-  //   return res.status(400).json({ error: 'Invalid postal code' });
-  // }
+  if (!regionResult.rows || regionResult.rows.length === 0) {
+    return res.status(400).json({ error: 'Invalid postal code' });
+  }
 
-  // // Check if the provided regionName matches one of the regions for this postal code
-  // const matchedRegion = regionResult.rows.find(r => (r.region_name || '').toLowerCase() === (regionName || '').toLowerCase());
-  // if (!matchedRegion) {
-  //   return res.status(400).json({ error: 'Region name does not match the postal code' });
-  // }
-  // const regionId = matchedRegion.region_id;
+  // Check if the provided regionName matches one of the regions for this postal code
+  const matchedRegion = regionResult.rows.find(r => (r.region_name || '').toLowerCase() === (regionName || '').toLowerCase());
+  if (!matchedRegion) {
+    return res.status(400).json({ error: 'Region name does not match the postal code' });
+  }
+  const regionId = matchedRegion.region_id;
 
   const client = await pool.connect();
 
