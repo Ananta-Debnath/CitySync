@@ -7,12 +7,19 @@ const fieldworkerController = require('../controllers/fieldworkerController');
 router.use(authMiddleware);
 router.use(roleMiddleware(['field_worker']));
 
+// Dashboard
+router.get('/dashboard', fieldworkerController.getDashboard);
+
 // Jobs
 router.get('/jobs', fieldworkerController.getJobs);
 router.put('/jobs/:id/status', fieldworkerController.updateJobStatus);
 
 // Meter reading related
 router.get('/connections', fieldworkerController.getConnections);
+router.get('/meters', fieldworkerController.getMeters);
+router.get('/tariffs', fieldworkerController.getTariffs);
+router.get('/tariffs/:tariff_id/slabs', fieldworkerController.getTariffSlabs);
+router.get('/readings', fieldworkerController.getReadings);
 router.post('/readings', fieldworkerController.submitReading);
 
 // Profile

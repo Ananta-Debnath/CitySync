@@ -109,6 +109,93 @@ const getConnections = async (req, res) => {
   }
 };
 
+const getMeters = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        m.meter_id,
+        m.meter_type,
+        m.is_active,
+        a.house_num,
+        a.street_name,
+        a.landmark,
+        t.tariff_id,
+        t.tariff_name,
+        t.consumer_category,
+        t.billing_method
+      FROM meter m
+      JOIN address a ON m.address_id = a.address_id
+      JOIN field_worker fw ON fw.assigned_region_id = a.region_id
+      LEFT JOIN utility_connection uc ON uc.meter_id = m.meter_id AND uc.connection_status ILIKE 'Active'
+      LEFT JOIN tariff t ON t.tariff_id = uc.tariff_id
+      WHERE fw.person_id = $1`,
+      [req.user.person_id]
+    );
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getTariffs = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT tariff_id, tariff_name, consumer_category, billing_method
+       FROM tariff
+       WHERE is_active = TRUE`
+    );
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getTariffSlabs = async (req, res) => {
+  const { tariff_id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT slab_num, charge_type, unit_from, unit_to, rate_per_unit
+       FROM tariff_slab
+       WHERE tariff_id = $1
+       ORDER BY slab_num`,
+      [tariff_id]
+    );
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getReadings = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        mr.reading_id,
+        mr.meter_id,
+        m.meter_type,
+        mr.tariff_id,
+        mr.slab_num,
+        mr.time_from,
+        mr.time_to,
+        mr.units_logged,
+        mr.reading_date,
+        mr.approved_by
+      FROM meter_reading mr
+      JOIN meter m ON mr.meter_id = m.meter_id
+      WHERE mr.field_worker_id = $1
+      ORDER BY mr.reading_date DESC`,
+      [req.user.person_id]
+    );
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
 const submitReading = async (req, res) => {
   const { meter_id, tariff_id, slab_num, time_from, time_to, units_logged } = req.body;
 
@@ -116,6 +203,14 @@ const submitReading = async (req, res) => {
     return res.status(400).json({
       error: 'Missing required fields: meter_id, tariff_id, slab_num, time_from, time_to, units_logged'
     });
+  }
+
+  if (new Date(time_to) <= new Date(time_from)) {
+    return res.status(400).json({ error: 'time_to must be after time_from' });
+  }
+
+  if (parseFloat(units_logged) <= 0) {
+    return res.status(400).json({ error: 'units_logged must be greater than 0' });
   }
 
   const client = await pool.connect();
@@ -139,6 +234,85 @@ const submitReading = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to submit reading' });
   } finally {
     client.release();
+  }
+};
+
+const getDashboard = async (req, res) => {
+  const personId = req.user.person_id;
+  try {
+    const [workerRes, complaintStatsRes, readingStatsRes, urgentComplaintsRes, recentReadingsRes] = await Promise.all([
+      pool.query(
+        `SELECT
+          p.first_name,
+          p.last_name,
+          fw.expertise,
+          fw.skillset,
+          r.region_name,
+          r.postal_code
+        FROM person p
+        JOIN field_worker fw ON fw.person_id = p.person_id
+        LEFT JOIN region r ON fw.assigned_region_id = r.region_id
+        WHERE p.person_id = $1`,
+        [personId]
+      ),
+      pool.query(
+        `SELECT
+          COUNT(*)                                           AS complaints_assigned,
+          COUNT(*) FILTER (WHERE status = 'Resolved')       AS complaints_resolved,
+          COUNT(*) FILTER (WHERE status = 'In Progress')    AS complaints_in_progress
+        FROM complaint
+        WHERE assigned_to = $1`,
+        [personId]
+      ),
+      pool.query(
+        `SELECT
+          (SELECT COUNT(*) FROM meter_reading WHERE field_worker_id = $1)                         AS readings_submitted,
+          (SELECT COUNT(*) FROM meter_reading WHERE field_worker_id = $1 AND approved_by IS NULL) AS readings_pending_approval`,
+        [personId]
+      ),
+      pool.query(
+        `SELECT complaint_id, description, status, priority, complaint_date
+        FROM complaint
+        WHERE assigned_to = $1 AND status != 'Resolved'
+        ORDER BY complaint_date DESC
+        LIMIT 5`,
+        [personId]
+      ),
+      pool.query(
+        `SELECT reading_id, meter_id, units_logged, reading_date, approved_by
+        FROM meter_reading
+        WHERE field_worker_id = $1
+        ORDER BY reading_date DESC
+        LIMIT 5`,
+        [personId]
+      ),
+    ]);
+
+    const worker = workerRes.rows[0] || {};
+    const s = { ...complaintStatsRes.rows[0], ...readingStatsRes.rows[0] };
+    const complaintsAssigned = parseInt(s.complaints_assigned) || 0;
+    const complaintsResolved = parseInt(s.complaints_resolved) || 0;
+
+    res.json({
+      data: {
+        worker,
+        stats: {
+          readings_submitted:         parseInt(s.readings_submitted) || 0,
+          readings_pending_approval:  parseInt(s.readings_pending_approval) || 0,
+          complaints_assigned:        complaintsAssigned,
+          complaints_resolved:        complaintsResolved,
+          complaints_in_progress:     parseInt(s.complaints_in_progress) || 0,
+          resolution_rate:            complaintsAssigned > 0
+                                        ? Math.round((complaintsResolved / complaintsAssigned) * 100)
+                                        : 0,
+        },
+        urgent_complaints: urgentComplaintsRes.rows,
+        recent_readings:   recentReadingsRes.rows,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
   }
 };
 
@@ -192,9 +366,14 @@ const getProfile = async (req, res) => {
 };
 
 module.exports = {
+  getDashboard,
   getJobs,
   updateJobStatus,
   getConnections,
+  getMeters,
+  getTariffs,
+  getTariffSlabs,
+  getReadings,
   submitReading,
   getProfile,
 };

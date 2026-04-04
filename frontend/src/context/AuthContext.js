@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }) => {
     const effective = r ?? user?.role;
     switch (effective) {
       case 'employee':     return '/employee/dashboard';
-      case 'field_worker': return '/field-worker/dashboard';
+      case 'field_worker': return '/fieldworker/dashboard';
       case 'consumer':     return '/consumer/dashboard';
       default:             return '/login';
     }

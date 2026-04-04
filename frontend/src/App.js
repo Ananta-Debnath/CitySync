@@ -54,7 +54,7 @@ const RootRedirect = () => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   const home = {
     employee:     '/employee/dashboard',
-    field_worker: '/field-worker/dashboard',
+    field_worker: '/fieldworker/dashboard',
     consumer:     '/consumer/dashboard',
   };
   return <Navigate to={home[user?.role] || '/login'} replace />;
@@ -102,15 +102,16 @@ function App() {
             } />
 
             {/* ── Field Worker ── */}
-            <Route path="/field-worker/*" element={
+            <Route path="/fieldworker/*" element={
               <ProtectedRoute roles={['field_worker']}>
                 <Layout>
                   <Routes>
                     <Route path="dashboard" element={<FieldWorkerDashboard />} />
                     <Route path="jobs"      element={<MyJobs />} />
                     <Route path="readings"  element={<MeterReading />} />
+                    <Route path="add-meter" element={<MeterReading />} />
                     <Route path="profile"   element={<Profile />} />
-                    <Route path="*" element={<Navigate to="/field-worker/dashboard" replace />} />
+                    <Route path="*" element={<Navigate to="/fieldworker/dashboard" replace />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
