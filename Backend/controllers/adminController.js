@@ -851,7 +851,7 @@ const assignComplaintAuto = async (req, res) => {
     const updateResult = await pool.query(`
       UPDATE complaint
       SET assigned_to = $1, assigned_by = $2, assignment_date = CURRENT_DATE,
-          status = 'Assigned', priority = $3
+          status = 'In Progress', priority = $3
       WHERE complaint_id = $4
       RETURNING *
     `, [selectedWorker.person_id, assigned_by, priority, complaintId]);
