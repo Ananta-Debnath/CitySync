@@ -1,0 +1,105 @@
+-- =============================================================
+-- SEED DATA — README
+-- Project: Dhaka Utility Management System
+-- =============================================================
+--
+-- RUN ORDER (strict — each file depends on the previous):
+--
+--   00. YOUR REGION FILE          ← run this first (20 Dhaka thanas)
+--   01_reference.sql              ← banks, mobile banking providers
+--   02_utilities.sql              ← DESCO electricity, WASA water, Titas gas
+--   03_tariffs.sql                ← realistic BD 2024 tariff rates + slabs + fixed charges
+--   04_people.sql                 ← 8 consumers, 2 employees, 25 field workers
+--   05_meters_connections.sql     ← meters + utility connections
+--   06_readings_usage.sql         ← 24 months readings (showcase) + 6 months (others)
+--   07_bills_payments.sql         ← postpaid bill generation + payments
+--   08_prepaid.sql                ← prepaid top-ups + approve prepaid readings
+--   09_applications.sql           ← connection applications
+--   10_complaints.sql             ← 75 complaints across 25 field workers
+--
+-- =============================================================
+-- KEY IDs
+-- =============================================================
+--
+-- UTILITIES:   1=DESCO Electricity  2=WASA Water  3=Titas Gas
+--
+-- TARIFFS (Bangladesh 2024 official rates):
+--   1 = Electricity Residential (LT-A): ৳4.63–৳14.61/kWh, 5% VAT
+--   2 = Electricity Commercial  (LT-E): ৳15.62 peak / ৳11.71 off-peak, 5% VAT
+--   3 = Water Residential: ৳0.01670/L (= ৳16.70/1000L), VAT exempt
+--   4 = Water Commercial:  ৳0.04620/L (= ৳46.20/1000L), 5% VAT
+--   5 = Gas Residential:   ৳18.00/m³, VAT exempt
+--   6 = Gas Commercial:    ৳30.50/m³, 5% VAT
+--
+-- SHOWCASE CONSUMER: person_id=1, Rahim Uddin, rahim.uddin@gmail.com
+--
+--   CONNECTIONS:
+--     connection_id=1  Electricity Postpaid  meter=1  tariff=1
+--     connection_id=2  Water Prepaid         meter=2  tariff=3
+--     connection_id=3  Gas Postpaid          meter=3  tariff=5
+--
+--   USAGE HISTORY: 24 months (Apr 2024 → Mar 2026)
+--     Electricity: 95–361 kWh/month (seasonal fluctuation)
+--     Water:       8,300–14,800 L/month
+--     Gas:         34–58 m³/month (inverse of electricity)
+--
+--   BILLING HISTORY (electricity & gas):
+--     PAID    → Apr 2024 – Sep 2025  (18 months, paid on time)
+--     OVERDUE → Oct 2025 & Nov 2025  (missed, past due date)
+--     UNPAID  → Dec 2025 – Feb 2026  (recent, not yet paid)
+--
+-- EMPLOYEES:
+--   person_id=9  Jahangir Kabir     (Billing Manager)
+--   person_id=10 Salma Chowdhury   (Operations Officer)
+--
+-- FIELD WORKERS (person_id 11–35, 25 total):
+--   HIGH    (1–3 day resolution): FW 11,12,13,14,19,23,27,32,34
+--   AVERAGE (4–7 days):           FW 15,17,18,21,22,25,26,28,31,35
+--   POOR    (8–20 days):          FW 16,20,24,29,30,33
+--
+-- =============================================================
+-- METER READING ID MAP
+-- =============================================================
+--   1  – 24  → Rahim electricity (approved in 06)
+--   25 – 48  → Rahim water       (approved in 08 after top-up)
+--   49 – 72  → Rahim gas         (approved in 06)
+--   73 – 78  → Farida electricity (approved in 06)
+--   79 – 84  → Kamal commercial  (approved in 08 after top-up)
+--   85 – 90  → Nasreen water     (approved in 06)
+--   91 – 96  → Shahidul gas      (approved in 06)
+--   97 – 102 → Momena electricity(approved in 08 after top-up)
+--  103 – 108 → Rafiqul commercial(approved in 06)
+--  109 – 114 → Tania water       (approved in 08 after top-up)
+--
+-- PREPAID ACCOUNT IDs:
+--   1 → Rahim Water (connection 2)
+--   2 → Kamal Elec  (connection 5)
+--   3 → Momena Elec (connection 8)
+--   4 → Tania Water (connection 10)
+--
+-- =============================================================
+-- USEFUL QUERIES TO VERIFY AFTER SEEDING
+-- =============================================================
+--
+-- Field worker analytics:
+--   SELECT * FROM field_worker_stats ORDER BY avg_resolution_days;
+--
+-- Rahim's usage graph data:
+--   SELECT to_char(time_from,'Mon YYYY') AS month,
+--          SUM(unit_used) AS units
+--   FROM usage u
+--   JOIN utility_connection c ON u.meter_id = c.meter_id
+--   WHERE c.consumer_id = 1 AND c.connection_id = 1
+--   GROUP BY time_from ORDER BY time_from;
+--
+-- Rahim's bill summary:
+--   SELECT bp.bill_period_start, bd.total_amount, bd.bill_status
+--   FROM bill_document bd
+--   JOIN bill_postpaid bp ON bp.bill_document_id = bd.bill_document_id
+--   WHERE bd.connection_id = 1 ORDER BY bp.bill_period_start;
+--
+-- Prepaid balance check:
+--   SELECT pa.prepaid_account_id, pa.balance,
+--          uc.connection_name
+--   FROM prepaid_account pa
+--   JOIN utility_connection uc ON pa.connection_id = uc.connection_id;

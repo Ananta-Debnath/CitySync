@@ -47,6 +47,27 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION months_between(p_start_date DATE, p_end_date DATE)
+RETURNS INTEGER
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $$
+  SELECT (
+    (EXTRACT(YEAR FROM date_trunc('month', p_end_date)) - EXTRACT(YEAR FROM date_trunc('month', p_start_date))) * 12
+    + (EXTRACT(MONTH FROM date_trunc('month', p_end_date)) - EXTRACT(MONTH FROM date_trunc('month', p_start_date)))
+  )::INTEGER;
+$$;
+
+CREATE OR REPLACE FUNCTION months_between(p_start_date DATE, p_end_ts TIMESTAMP)
+RETURNS INTEGER
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $$
+  SELECT months_between(p_start_date, p_end_ts::DATE);
+$$;
+
 CREATE OR REPLACE FUNCTION calculate_energy_amount(
     p_connection_id INTEGER,
     p_start_date DATE,
@@ -80,19 +101,24 @@ DECLARE
     v_unit_used NUMERIC(10, 2);
     v_tariff_id INTEGER;
     v_slab_num INTEGER;
+    v_approved_by INTEGER;
 BEGIN
-    IF (SELECT approved_by FROM meter_reading WHERE reading_id = p_reading_id) IS NOT NULL THEN
-        RAISE EXCEPTION 'Meter reading has already been approved';
-    END IF;
-
-    UPDATE meter_reading
-    SET approved_by = p_employee_id
-    WHERE reading_id = p_reading_id;
-
-    SELECT meter_id, time_from, time_to, unit_used, tariff_id, slab_num
-    INTO v_meter_id, v_time_from, v_time_to, v_unit_used, v_tariff_id, v_slab_num
+  SELECT meter_id, time_from, time_to, units_logged, tariff_id, slab_num, approved_by
+  INTO v_meter_id, v_time_from, v_time_to, v_unit_used, v_tariff_id, v_slab_num, v_approved_by
     FROM meter_reading
     WHERE reading_id = p_reading_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Meter reading % was not found', p_reading_id;
+  END IF;
+
+  IF v_approved_by IS NOT NULL THEN
+    RAISE EXCEPTION 'Meter reading has already been approved';
+  END IF;
+
+  UPDATE meter_reading
+  SET approved_by = p_employee_id
+  WHERE reading_id = p_reading_id;
 
     INSERT INTO usage (meter_id, tariff_id, slab_num, time_from, time_to, unit_used)
     VALUES (v_meter_id, v_tariff_id, v_slab_num, v_time_from, v_time_to, v_unit_used);
@@ -559,8 +585,8 @@ CREATE OR REPLACE PROCEDURE create_postpaid_bill_for_connection(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_period_start DATE;
-  v_period_end DATE;
+  -- v_period_start DATE;
+  -- v_period_end DATE;
   v_period_end_exclusive TIMESTAMP;
   v_bill_generation_date DATE;
 
@@ -568,6 +594,7 @@ DECLARE
   v_tariff_id INTEGER;
   v_connection_status TEXT;
   v_payment_type TEXT;
+  v_connection_date DATE;
 
   v_bill_document_id INTEGER;
 
@@ -583,6 +610,10 @@ DECLARE
   v_fc RECORD;
 
 BEGIN
+  IF p_period_start > p_period_end THEN
+    RAISE EXCEPTION 'p_period_start must be on or before p_period_end. Got: % and %', p_period_start, p_period_end;
+  END IF;
+
   IF p_due_in_days < 0 THEN
     RAISE EXCEPTION 'p_due_in_days must be >= 0. Got: %', p_due_in_days;
   END IF;
@@ -631,12 +662,6 @@ BEGIN
 
   v_energy_amount := calculate_energy_amount(p_connection_id, p_period_start, p_period_end);
 
-  -- SELECT COALESCE(SUM(fc.charge_amount), 0)
-  -- INTO v_fixed_charge_total
-  -- FROM fixed_charge fc
-  -- WHERE fc.tariff_id = v_tariff_id
-  --   AND fc.charge_frequency ILIKE 'MONTHLY';
-
   SELECT COALESCE(t.vat_rate, 0), COALESCE(t.is_vat_exempt, FALSE)
   INTO v_vat_rate, v_is_vat_exempt
   FROM tariff t
@@ -653,11 +678,31 @@ BEGIN
           v_vat_rate, 1, v_is_vat_exempt, 2, 'UNPAID')
   RETURNING bill_document_id INTO v_bill_document_id;
 
+  SELECT connection_date INTO v_connection_date
+  FROM utility_connection
+  WHERE connection_id = p_connection_id;
+
   FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
     v_fixed_charge_total := v_fixed_charge_total + v_fc.charge_amount;
     INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, amount, timeframe)
     VALUES(v_fc.fixed_charge_id, v_bill_document_id, v_fc.charge_amount, to_char(p_period_start, 'Mon YYYY'));
   END LOOP;
+
+  IF months_between(v_connection_date, p_period_start) % 3 = 0 THEN
+    FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'QUARTERLY') LOOP
+      v_fixed_charge_total := v_fixed_charge_total + v_fc.charge_amount;
+      INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, amount, timeframe)
+      VALUES(v_fc.fixed_charge_id, v_bill_document_id, v_fc.charge_amount, to_char(p_period_start, 'Mon YYYY'));
+    END LOOP;
+  END IF;
+
+  IF months_between(v_connection_date, p_period_start) % 12 = 0 THEN
+    FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'ANNUALLY') LOOP
+      v_fixed_charge_total := v_fixed_charge_total + v_fc.charge_amount;
+      INSERT INTO fixed_charge_applied(fixed_charge_id, bill_document_id, amount, timeframe)
+      VALUES(v_fc.fixed_charge_id, v_bill_document_id, v_fc.charge_amount, to_char(p_period_start, 'Mon YYYY'));
+    END LOOP;
+  END IF;
 
   v_subtotal := ROUND(v_energy_amount + v_fixed_charge_total, 2);
   v_vat_amount := ROUND((v_subtotal * v_vat_rate) / 100.0, 2);
@@ -700,31 +745,19 @@ BEGIN
     RAISE EXCEPTION 'p_due_in_days must be >= 0. Got: %', p_due_in_days;
   END IF;
 
-  FOR v_connection IN (SELECT uc.connection_id, uc.payment_type FROM utility_connection uc
-                       WHERE uc.connection_status ILIKE 'ACTIVE')
+  FOR v_connection IN (SELECT uc.connection_id
+                       FROM utility_connection uc
+                       WHERE uc.connection_status ILIKE 'ACTIVE'
+                         AND uc.payment_type ILIKE 'POSTPAID')
   LOOP
     BEGIN
-      IF v_connection.payment_type ILIKE 'POSTPAID' THEN
-        CALL create_postpaid_bill_for_connection(
-          v_connection.connection_id,
-          p_month,
-          (p_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE,
-          p_due_in_days,
-          p_run_date
-        );
-      ELSIF v_connection.payment_type ILIKE 'PREPAID' THEN
-        -- add the fixed charges
-        INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
-        SELECT pa.prepaid_account_id, fc.fixed_charge_id, fc.charge_amount, to_char(p_month + INTERVAL '1 month', 'Mon YYYY')
-        FROM prepaid_account pa
-        JOIN utility_connection uc ON pa.connection_id = uc.connection_id
-        JOIN tariff t ON uc.tariff_id = t.tariff_id
-        JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
-        WHERE fc.is_mandatory = TRUE AND fc.charge_frequency ILIKE 'MONTHLY'
-          AND uc.connection_id = v_connection.connection_id;
-      ELSE
-        RAISE EXCEPTION 'Unknown payment type for connection %: %', v_connection.connection_id, v_connection.payment_type;
-      END IF;
+      CALL create_postpaid_bill_for_connection(
+        v_connection.connection_id,
+        p_month,
+        (p_month + INTERVAL '1 month' - INTERVAL '1 day')::DATE,
+        p_due_in_days,
+        p_run_date
+      );
     
     EXCEPTION WHEN OTHERS THEN
       -- Log the error and continue with the next connection
@@ -733,6 +766,57 @@ BEGIN
 
     END;
   END LOOP;
+
+  -- add monthly fixed charges for all active prepaid connections in one pass
+  INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
+  SELECT
+    pa.prepaid_account_id,
+    fc.fixed_charge_id,
+    fc.charge_amount,
+    to_char(p_month + INTERVAL '1 month', 'Mon YYYY')
+  FROM prepaid_account pa
+  JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+  JOIN tariff t ON uc.tariff_id = t.tariff_id
+  JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
+  WHERE uc.connection_status ILIKE 'ACTIVE'
+    AND uc.payment_type ILIKE 'PREPAID'
+    AND fc.is_mandatory = TRUE
+    AND fc.charge_frequency ILIKE 'MONTHLY'
+  ON CONFLICT (prepaid_account_id, fixed_charge_id, timeframe) DO NOTHING;
+
+  INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
+  SELECT
+    pa.prepaid_account_id,
+    fc.fixed_charge_id,
+    fc.charge_amount,
+    to_char(p_month + INTERVAL '1 month', 'Mon YYYY')
+  FROM prepaid_account pa
+  JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+  JOIN tariff t ON uc.tariff_id = t.tariff_id
+  JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
+  WHERE uc.connection_status ILIKE 'ACTIVE'
+    AND uc.payment_type ILIKE 'PREPAID'
+    AND fc.is_mandatory = TRUE
+    AND fc.charge_frequency ILIKE 'QUARTERLY'
+    AND months_between(uc.connection_date, p_month + INTERVAL '1 month') % 3 = 0
+  ON CONFLICT (prepaid_account_id, fixed_charge_id, timeframe) DO NOTHING;
+
+  INSERT INTO fixed_charge_owed (prepaid_account_id, fixed_charge_id, amount, timeframe)
+  SELECT
+    pa.prepaid_account_id,
+    fc.fixed_charge_id,
+    fc.charge_amount,
+    to_char(p_month + INTERVAL '1 month', 'Mon YYYY')
+  FROM prepaid_account pa
+  JOIN utility_connection uc ON pa.connection_id = uc.connection_id
+  JOIN tariff t ON uc.tariff_id = t.tariff_id
+  JOIN fixed_charge fc ON t.tariff_id = fc.tariff_id
+  WHERE uc.connection_status ILIKE 'ACTIVE'
+    AND uc.payment_type ILIKE 'PREPAID'
+    AND fc.is_mandatory = TRUE
+    AND fc.charge_frequency ILIKE 'ANNUALLY'
+    AND months_between(uc.connection_date, p_month + INTERVAL '1 month') % 12 = 0
+  ON CONFLICT (prepaid_account_id, fixed_charge_id, timeframe) DO NOTHING;
 END;
 $$;
 

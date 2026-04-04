@@ -83,7 +83,7 @@ const MyBills = () => {
   const fetchBills = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getConsumerBills();
+      const res = await getConsumerBills(100);
       setBills(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error(err); }
     finally       { setLoading(false); }
