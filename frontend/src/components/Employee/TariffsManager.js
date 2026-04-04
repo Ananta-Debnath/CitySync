@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getTariffs, createTariff, deactivateTariff,
-  getTariffSlabs, createTariffSlab, deleteTariffSlab,
+  getTariffSlabs, createTariffSlab,
   getFixedCharges, createFixedCharge, deleteFixedCharge,
   getUtilities
 } from '../../services/api';
 
-// ── Slab Panel ───────────────────────────────────────────────────────────────
+// ── Slab Panel (read-only for existing tariffs) ──────────────────────────────
 const SlabPanel = ({ tariff }) => {
   const [slabs, setSlabs] = useState([]);
-  const [newSlab, setNewSlab] = useState({ charge_type: 'FLAT', unit_from: '', unit_to: '', rate_per_unit: '' });
 
   const load = useCallback(async () => {
     try {
@@ -20,63 +19,32 @@ const SlabPanel = ({ tariff }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = async () => {
-    if (!newSlab.unit_from || !newSlab.rate_per_unit) return alert('unit_from and rate_per_unit are required');
-    try {
-      await createTariffSlab(tariff.tariff_id, newSlab);
-      setNewSlab({ charge_type: 'FLAT', unit_from: '', unit_to: '', rate_per_unit: '' });
-      load();
-    } catch { alert('Failed to add slab'); }
-  };
-
-  const handleDelete = async (slab_num) => {
-    if (!window.confirm('Delete this slab?')) return;
-    try {
-      await deleteTariffSlab(tariff.tariff_id, slab_num);
-      load();
-    } catch (e) { alert(e.response?.data?.error || 'Cannot delete slab'); }
-  };
-
-  const inputCls = 'px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-txt placeholder:text-sub focus:border-elec/40 transition-all font-outfit text-xs w-full';
-  const selectCls = 'px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-txt focus:border-elec/40 transition-all font-outfit text-xs w-full';
-
   return (
     <div className="mt-3">
       <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-sub mb-2">Rate Slabs</div>
+      <div className="bg-blue-500/10 border border-blue-500/40 rounded-lg p-3 mb-3">
+        <p className="font-outfit text-xs text-blue-300">
+          Slabs are locked — they cannot be modified after tariff creation.
+        </p>
+      </div>
       <div className="bg-white/[0.02] border border-white/[0.07] rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-[40px_80px_1fr_1fr_1fr_auto] gap-2 px-3 py-2 bg-white/[0.03] border-b border-white/[0.07]">
-          {['#', 'Type', 'From', 'To', 'Rate/Unit', ''].map((h, i) => (
+        <div className="grid grid-cols-[40px_80px_1fr_1fr_1fr] gap-2 px-3 py-2 bg-white/[0.03] border-b border-white/[0.07]">
+          {['#', 'Type', 'From', 'To', 'Rate/Unit'].map((h, i) => (
             <div key={i} className="font-mono text-[9px] uppercase tracking-[0.1em] text-sub">{h}</div>
           ))}
         </div>
         {slabs.map(s => (
-          <div key={s.slab_num} className="grid grid-cols-[40px_80px_1fr_1fr_1fr_auto] gap-2 px-3 py-2 border-b border-white/[0.05] items-center">
+          <div key={s.slab_num} className="grid grid-cols-[40px_80px_1fr_1fr_1fr] gap-2 px-3 py-2 border-b border-white/[0.05] items-center">
             <div className="font-mono text-xs text-sub">#{s.slab_num}</div>
             <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 font-mono text-[10px] text-sub w-fit">{s.charge_type}</span>
             <div className="font-outfit text-xs text-txt">{s.unit_from}</div>
             <div className="font-outfit text-xs text-txt">{s.unit_to ?? '∞'}</div>
             <div className="font-outfit text-xs text-txt font-semibold">{parseFloat(s.rate_per_unit).toFixed(4)}</div>
-            <button
-              onClick={() => handleDelete(s.slab_num)}
-              className="px-2 py-1 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all font-outfit text-xs"
-            >✕</button>
           </div>
         ))}
         {slabs.length === 0 && (
-          <div className="px-3 py-3 font-outfit text-xs text-sub">No slabs yet</div>
+          <div className="px-3 py-3 font-outfit text-xs text-sub">No slabs</div>
         )}
-        {/* Add row */}
-        <div className="grid grid-cols-[40px_80px_1fr_1fr_1fr_auto] gap-2 px-3 py-2 bg-white/[0.02] items-center">
-          <div className="font-mono text-[10px] text-sub">New</div>
-          <select value={newSlab.charge_type} onChange={e => setNewSlab({ ...newSlab, charge_type: e.target.value })} className={selectCls}>
-            {['FLAT', 'PEAK', 'OFF-PEAK'].map(o => <option key={o}>{o}</option>)}
-          </select>
-          <input type="number" placeholder="From" value={newSlab.unit_from} onChange={e => setNewSlab({ ...newSlab, unit_from: e.target.value })} className={inputCls} />
-          <input type="number" placeholder="To (∞)" value={newSlab.unit_to} onChange={e => setNewSlab({ ...newSlab, unit_to: e.target.value })} className={inputCls} />
-          <input type="number" step="0.0001" placeholder="Rate" value={newSlab.rate_per_unit} onChange={e => setNewSlab({ ...newSlab, rate_per_unit: e.target.value })} className={inputCls} />
-          <button onClick={handleAdd} className="px-2 py-1 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-xs whitespace-nowrap">+ Add</button>
-        </div>
       </div>
     </div>
   );
@@ -161,16 +129,43 @@ const CreateTariffForm = ({ utilities, onSave, onCancel }) => {
     billing_method: 'Slab', effective_from: '', effective_to: '',
     is_active: true, vat_rate: 5.00, is_vat_exempt: false
   });
+  const [slabs, setSlabs] = useState([
+    { slab_num: 1, charge_type: 'FLAT', unit_from: 0, unit_to: 100, rate_per_unit: 0 }
+  ]);
+
+  const addSlab = () => {
+    const last = slabs[slabs.length - 1];
+    setSlabs([...slabs, {
+      slab_num: slabs.length + 1,
+      charge_type: 'FLAT',
+      unit_from: last.unit_to != null ? last.unit_to + 1 : 0,
+      unit_to: last.unit_to != null ? last.unit_to + 100 : 100,
+      rate_per_unit: 0
+    }]);
+  };
+
+  const removeSlab = (index) => {
+    if (slabs.length === 1) return alert('Must have at least one slab');
+    setSlabs(slabs.filter((_, i) => i !== index).map((s, i) => ({ ...s, slab_num: i + 1 })));
+  };
+
+  const updateSlab = (index, field, value) => {
+    const updated = [...slabs];
+    updated[index] = { ...updated[index], [field]: value };
+    setSlabs(updated);
+  };
 
   const handleSubmit = async () => {
     if (!form.tariff_name || !form.utility_id || !form.effective_from)
       return alert('Name, utility and effective date are required');
-    await onSave(form);
+    await onSave(form, slabs);
   };
 
   const labelCls = 'block font-mono text-[10px] uppercase tracking-[0.12em] text-sub mb-2';
   const inputCls = 'w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-txt placeholder:text-sub focus:border-elec/40 focus:bg-white/[0.07] transition-all font-outfit text-sm';
   const selectCls = 'w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-txt focus:border-elec/40 focus:bg-white/[0.07] transition-all font-outfit text-sm';
+  const slabInputCls = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-txt placeholder:text-sub focus:border-elec/40 transition-all font-outfit text-sm';
+  const slabSelectCls = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-txt focus:border-elec/40 transition-all font-outfit text-sm';
 
   return (
     <div className="bg-card border-0.5 border-white/[0.07] rounded-2xl overflow-hidden mb-6">
@@ -240,6 +235,82 @@ const CreateTariffForm = ({ utilities, onSave, onCancel }) => {
           </p>
         </div>
 
+        {/* Slabs section */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-sub">Rate Slabs</div>
+              <p className="font-outfit text-xs text-sub mt-1">Slabs can only be configured during creation</p>
+            </div>
+            <button
+              onClick={addSlab}
+              className="px-3 py-1.5 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-xs font-medium"
+            >+ Add Slab</button>
+          </div>
+
+          <div className="space-y-2">
+            {slabs.map((slab, index) => (
+              <div key={index} className="bg-white/[0.02] border border-white/[0.07] rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-outfit text-xs font-medium text-txt">Slab {slab.slab_num}</span>
+                  {slabs.length > 1 && (
+                    <button
+                      onClick={() => removeSlab(index)}
+                      className="font-outfit text-xs text-red-400 hover:text-red-300 transition-colors"
+                    >Remove</button>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="block font-outfit text-[10px] text-sub mb-1">Unit From</label>
+                    <input
+                      type="number" step="0.01"
+                      value={slab.unit_from}
+                      onChange={e => updateSlab(index, 'unit_from', parseFloat(e.target.value) || 0)}
+                      className={slabInputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-outfit text-[10px] text-sub mb-1">Unit To</label>
+                    <input
+                      type="number" step="0.01"
+                      value={slab.unit_to ?? ''}
+                      onChange={e => updateSlab(index, 'unit_to', e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="∞ optional"
+                      className={slabInputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-outfit text-[10px] text-sub mb-1">Rate/Unit (৳)</label>
+                    <input
+                      type="number" step="0.0001" min="0"
+                      value={slab.rate_per_unit}
+                      onChange={e => updateSlab(index, 'rate_per_unit', parseFloat(e.target.value) || 0)}
+                      className={slabInputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-outfit text-[10px] text-sub mb-1">Charge Type</label>
+                    <select
+                      value={slab.charge_type}
+                      onChange={e => updateSlab(index, 'charge_type', e.target.value)}
+                      className={slabSelectCls}
+                    >
+                      {['FLAT', 'PEAK', 'OFF-PEAK'].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg p-3">
+            <p className="font-outfit text-xs text-yellow-300">
+              <strong>Important:</strong> Slabs will be locked after tariff creation. Ensure all rates are correct before saving.
+            </p>
+          </div>
+        </div>
+
         <div className="flex gap-3">
           <button onClick={handleSubmit} className="px-4 py-2 bg-elec/10 border border-elec/40 text-elec rounded-lg hover:bg-elec/20 transition-all font-outfit text-sm font-medium">
             Create Tariff
@@ -275,9 +346,13 @@ const TariffsManager = () => {
 
   useEffect(() => { load(); }, []);
 
-  const handleCreate = async (form) => {
+  const handleCreate = async (form, slabs) => {
     try {
-      await createTariff(form);
+      const res = await createTariff(form);
+      const tariff_id = res.data.tariff_id;
+      for (const slab of slabs) {
+        await createTariffSlab(tariff_id, slab);
+      }
       setShowCreate(false);
       load();
     } catch { alert('Failed to create tariff'); }
