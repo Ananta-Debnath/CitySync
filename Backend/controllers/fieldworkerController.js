@@ -23,7 +23,9 @@ const getJobs = async (req, res) => {
       LEFT JOIN tariff t ON uc.tariff_id = t.tariff_id
       LEFT JOIN utility u ON t.utility_id = u.utility_id
       WHERE comp.assigned_to = $1
-      ORDER BY comp.complaint_date DESC`,
+      ORDER BY
+        CASE comp.priority WHEN 'Urgent' THEN 1 WHEN 'Normal' THEN 2 ELSE 3 END,
+        comp.complaint_date DESC`,
       [req.user.person_id]
     );
 
@@ -41,12 +43,17 @@ const updateJobStatus = async (req, res) => {
   if (!status) return res.status(400).json({ error: 'Status is required' });
 
   try {
+    if (!['In Progress', 'Resolved'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be "In Progress" or "Resolved"' });
+    }
+
     const result = await pool.query(
       `UPDATE complaint
       SET
         status = $1,
         remarks = COALESCE($2, remarks),
-        resolution_date = CASE WHEN $1 = 'Resolved' THEN CURRENT_DATE ELSE resolution_date END
+        assignment_date = CASE WHEN $1 = 'In Progress' THEN CURRENT_TIMESTAMP ELSE assignment_date END,
+        resolution_date = CASE WHEN $1 = 'Resolved' THEN CURRENT_TIMESTAMP ELSE resolution_date END
       WHERE complaint_id = $3 AND assigned_to = $4
       RETURNING *`,
       [status, remarks || null, id, req.user.person_id]
@@ -122,7 +129,11 @@ const getMeters = async (req, res) => {
         t.tariff_id,
         t.tariff_name,
         t.consumer_category,
-        t.billing_method
+        t.billing_method,
+        EXISTS (
+          SELECT 1 FROM utility_connection uc2
+          WHERE uc2.meter_id = m.meter_id AND uc2.connection_status ILIKE 'Active'
+        ) AS has_active_connection
       FROM meter m
       JOIN address a ON m.address_id = a.address_id
       JOIN field_worker fw ON fw.assigned_region_id = a.region_id
@@ -135,6 +146,85 @@ const getMeters = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const getMeterStats = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        COUNT(*)                                    AS total_meters,
+        COUNT(*) FILTER (WHERE m.is_active = TRUE)  AS active_meters,
+        COUNT(*) FILTER (WHERE m.is_active = FALSE) AS inactive_meters
+      FROM meter m
+      JOIN address a ON m.address_id = a.address_id
+      JOIN field_worker fw ON fw.assigned_region_id = a.region_id
+      WHERE fw.person_id = $1`,
+      [req.user.person_id]
+    );
+    const row = result.rows[0];
+    res.json({
+      total_meters:    parseInt(row.total_meters)   || 0,
+      active_meters:   parseInt(row.active_meters)  || 0,
+      inactive_meters: parseInt(row.inactive_meters)|| 0,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+const createMeter = async (req, res) => {
+  const { meter_type, house_num, street_name, landmark } = req.body;
+
+  if (!meter_type || !house_num || !street_name) {
+    return res.status(400).json({ error: 'meter_type, house_num, and street_name are required' });
+  }
+  if (!['Electricity', 'Water', 'Gas'].includes(meter_type)) {
+    return res.status(400).json({ error: 'meter_type must be Electricity, Water, or Gas' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const regionRes = await client.query(
+      `SELECT assigned_region_id FROM field_worker WHERE person_id = $1`,
+      [req.user.person_id]
+    );
+    if (regionRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Field worker has no assigned region' });
+    }
+    const { assigned_region_id } = regionRes.rows[0];
+
+    const addrRes = await client.query(
+      `INSERT INTO address (region_id, house_num, street_name, landmark)
+       VALUES ($1, $2, $3, $4)
+       RETURNING address_id`,
+      [assigned_region_id, house_num, street_name, landmark || null]
+    );
+    const address_id = addrRes.rows[0].address_id;
+
+    const meterRes = await client.query(
+      `INSERT INTO meter (address_id, meter_type, is_active)
+       VALUES ($1, $2, FALSE)
+       RETURNING meter_id, meter_type, is_active, address_id`,
+      [address_id, meter_type]
+    );
+    const meter = meterRes.rows[0];
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      message: 'Meter registered successfully',
+      data: { ...meter, house_num, street_name, landmark: landmark || null },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Failed to register meter' });
+  } finally {
+    client.release();
   }
 };
 
@@ -371,6 +461,8 @@ module.exports = {
   updateJobStatus,
   getConnections,
   getMeters,
+  getMeterStats,
+  createMeter,
   getTariffs,
   getTariffSlabs,
   getReadings,

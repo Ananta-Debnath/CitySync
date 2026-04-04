@@ -1,121 +1,298 @@
-import React, { useState, useEffect } from 'react';
-import { getMyJobs, updateJobStatus } from '../../services/api';
-import { useTheme } from '../Layout/ThemeContext';
-import { tokens, fonts } from '../../theme';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import SideDrawer from '../Employee/Shared/SideDrawer';
+
+const grain = (
+  <div
+    className="fixed inset-0 z-[1] pointer-events-none opacity-[0.04]"
+    style={{
+      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`
+    }}
+  />
+);
+
+const LABEL = 'font-mono text-[10px] uppercase tracking-[0.12em] text-sub mb-1';
+const BADGE = 'font-mono text-[9px] uppercase tracking-widest px-2 py-1 rounded-lg';
+
+const priorityBadgeClass = (priority) => {
+  if (priority === 'Urgent') return 'bg-red-500/10 border border-red-500/30 text-red-400';
+  if (priority === 'Normal') return 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400';
+  return 'bg-white/5 border border-white/10 text-sub';
+};
+
+const statusBadgeClass = (status) => {
+  if (status === 'Pending') return 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400';
+  if (status === 'In Progress') return 'bg-blue-500/10 border border-blue-500/30 text-blue-400';
+  return 'bg-green-500/10 border border-green-500/30 text-green-400';
+};
+
+const priorityBorderClass = (priority) => {
+  if (priority === 'Urgent') return 'border-red-500/30';
+  if (priority === 'Normal') return 'border-yellow-500/30';
+  return 'border-white/[0.07]';
+};
+
+const Spinner = () => (
+  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+  </svg>
+);
+
+const formatDate = (ts) => {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
 
 const MyJobs = () => {
-  const { isDark } = useTheme();
-  const t = tokens[isDark ? 'dark' : 'light'];
-  
-  const [jobs, setJobs] = useState([]);
+  const { authFetch } = useAuth();
+
+  const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [resolvingId, setResolvingId] = useState(null);
+  const [error, setError] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [remarks, setRemarks] = useState('');
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    authFetch('/api/fieldworker/complaints')
+      .then(r => r.json())
+      .then(j => setComplaints(j.data || []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [authFetch]);
 
-  const fetchJobs = async () => {
-    try {
-      const res = await getMyJobs();
-      setJobs(res.data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch jobs', err);
-    } finally {
-      setLoading(false);
-    }
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
   };
 
-  const handleResolve = async (id) => {
+  const openDrawer = (c) => {
+    setSelectedComplaint(c);
+    setRemarks('');
+    setDrawerOpen(true);
+  };
+
+  const handleUpdateStatus = async (complaintId, newStatus) => {
+    setUpdating(true);
     try {
-      await updateJobStatus(id, { status: 'Resolved', remarks });
-      setResolvingId(null);
+      const body = { status: newStatus };
+      if (newStatus === 'Resolved') body.remarks = remarks;
+
+      const res = await authFetch(`/api/fieldworker/complaints/${complaintId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      const j = await res.json();
+
+      setComplaints(prev =>
+        prev.map(c => c.complaint_id === complaintId ? { ...c, ...j.data } : c)
+      );
+      setSelectedComplaint(prev => ({ ...prev, ...j.data }));
+      showToast('Complaint updated successfully.');
+      setDrawerOpen(false);
       setRemarks('');
-      fetchJobs();
-    } catch (err) {
-      alert('Failed to resolve job');
+    } catch {
+      showToast('Failed to update complaint.');
+    } finally {
+      setUpdating(false);
     }
   };
 
-  if (loading) return <div>Loading jobs...</div>;
+  const filterBtnClass = (active) =>
+    active
+      ? 'bg-elec/10 border border-elec/40 text-elec rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em]'
+      : 'bg-white/5 border border-white/10 text-sub rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em]';
+
+  const filteredComplaints = complaints.filter(c => {
+    const statusMatch = statusFilter === 'All' || c.status === statusFilter;
+    const priorityMatch = priorityFilter === 'All' || c.priority === priorityFilter;
+    return statusMatch && priorityMatch;
+  });
 
   return (
-    <div style={{ fontFamily: fonts.ui }}>
-      <h2 style={{ color: t.text, marginBottom: 20 }}>My Assigned Jobs</h2>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {jobs.map(job => (
-          <div key={job.complaint_id} style={{ 
-            background: t.bgCard, 
-            border: `1px solid ${job.status === 'Resolved' ? t.success : t.border}`, 
-            borderRadius: 16, 
-            padding: 24 
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, color: t.textSub, marginBottom: 4 }}>Job #{job.complaint_id} — {new Date(job.complaint_date).toLocaleDateString()}</div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: t.text }}>{job.consumer_first_name} {job.consumer_last_name}</div>
-                <div style={{ fontSize: 14, color: t.textMuted }}>{job.consumer_phone}</div>
-              </div>
-              <span style={{
-                padding: '6px 12px', borderRadius: 100, fontSize: 13, fontWeight: 600,
-                background: job.status === 'Resolved' ? (isDark ? '#0D2E1A' : '#DCFCE7') : (isDark ? '#0F172A' : '#DBEAFE'),
-                color: job.status === 'Resolved' ? (isDark ? '#4ADE80' : '#16A34A') : (isDark ? '#60A5FA' : '#2563EB')
-              }}>
-                {job.status}
-              </span>
-            </div>
+    <>
+      {grain}
+      <div className="relative z-10 space-y-5">
 
-            <div style={{ background: t.bgInputs, padding: 16, borderRadius: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 13, color: t.textSub, marginBottom: 4 }}>Address</div>
-              <div style={{ fontSize: 15, color: t.text }}>{job.house_num}, {job.street_name}, {job.landmark}</div>
-              <div style={{ fontSize: 13, color: t.textMuted }}>{job.region_name}</div>
-            </div>
+        {/* Page header */}
+        <div>
+          <h1 className="font-outfit text-xl font-semibold text-txt">My Jobs</h1>
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-sub mt-1">
+            Assigned complaints and tasks
+          </p>
+        </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: t.textSub, marginBottom: 4 }}>Complaint Information</div>
-              <div style={{ fontSize: 15, color: t.text, lineHeight: 1.5 }}>{job.description}</div>
-              {job.remarks && (
-                <div style={{ marginTop: 8, padding: 12, background: isDark ? '#1a1d24' : '#f8f9fa', borderRadius: 8, borderLeft: `3px solid ${t.primary}`, fontSize: 14, color: t.textSub }}>
-                  <strong>Notes:</strong> {job.remarks}
-                </div>
-              )}
-            </div>
-
-            {job.status !== 'Resolved' && (
-              <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 16 }}>
-                {resolvingId === job.complaint_id ? (
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <input 
-                      value={remarks}
-                      onChange={e => setRemarks(e.target.value)}
-                      placeholder="Add resolution remarks..."
-                      style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bgInputs, color: t.text, fontSize: 14 }}
-                    />
-                    <button onClick={() => handleResolve(job.complaint_id)} style={{ padding: '10px 20px', background: t.success, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-                      Confirm Resolved
-                    </button>
-                    <button onClick={() => setResolvingId(null)} style={{ padding: '10px 20px', background: 'transparent', color: t.textSub, border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => setResolvingId(job.complaint_id)} style={{ padding: '10px 20px', background: t.primary, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, width: '100%' }}>
-                    Mark as Resolved
-                  </button>
-                )}
-              </div>
-            )}
+        {/* Filter bar */}
+        <div className="space-y-2">
+          <div className="flex gap-2 flex-wrap">
+            {['All', 'Pending', 'In Progress', 'Resolved'].map(f => (
+              <button key={f} className={filterBtnClass(statusFilter === f)} onClick={() => setStatusFilter(f)}>
+                {f}
+              </button>
+            ))}
           </div>
-        ))}
-        {jobs.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: t.textSub, background: t.bgCard, borderRadius: 16, border: `1px solid ${t.border}` }}>
-            You have no assigned jobs at the moment.
+          <div className="flex gap-2 flex-wrap">
+            {['All', 'Urgent', 'Normal', 'Low'].map(f => (
+              <button key={f} className={filterBtnClass(priorityFilter === f)} onClick={() => setPriorityFilter(f)}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="animate-pulse bg-white/[0.03] rounded-xl h-20" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="font-outfit text-sm text-sub">Failed to load complaints.</p>
+          </div>
+        ) : complaints.length === 0 ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="font-outfit text-sm text-sub">No complaints assigned yet.</p>
+          </div>
+        ) : filteredComplaints.length === 0 ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="font-outfit text-sm text-sub">No complaints match the selected filters.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredComplaints.map(c => (
+              <div
+                key={c.complaint_id}
+                className={`bg-card border ${priorityBorderClass(c.priority)} rounded-xl overflow-hidden hover:brightness-110 transition-all cursor-pointer`}
+                onClick={() => openDrawer(c)}
+              >
+                <div className="h-[1.5px] bg-elec/45 rounded-t-2xl" />
+                <div className="p-4">
+                  {/* Top row */}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-outfit text-sm font-semibold text-txt">
+                      {c.consumer_first_name} {c.consumer_last_name}
+                    </span>
+                    <span className={`${priorityBadgeClass(c.priority)} ${BADGE} shrink-0`}>
+                      {c.priority}
+                    </span>
+                  </div>
+                  {/* Description */}
+                  <p className="font-outfit text-sm text-sub line-clamp-2 mt-1">{c.description}</p>
+                  {/* Bottom row */}
+                  <div className="flex items-center justify-between mt-3">
+                    <span className={`${statusBadgeClass(c.status)} ${BADGE}`}>
+                      {c.status}
+                    </span>
+                    <span className="font-mono text-[10px] text-sub">{formatDate(c.complaint_date)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
       </div>
-    </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-card border border-white/[0.1] rounded-xl px-4 py-3 font-outfit text-sm text-txt shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      {/* Side drawer */}
+      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        {selectedComplaint && (
+          <>
+            <div className="h-[1.5px] bg-elec/45" />
+
+            {/* Drawer header */}
+            <div className="p-6 border-b border-white/[0.05]">
+              <h2 className="font-outfit text-lg font-semibold text-txt">
+                Complaint #{selectedComplaint.complaint_id}
+              </h2>
+              <div className="flex gap-2 mt-2">
+                <span className={`${priorityBadgeClass(selectedComplaint.priority)} ${BADGE}`}>
+                  {selectedComplaint.priority}
+                </span>
+                <span className={`${statusBadgeClass(selectedComplaint.status)} ${BADGE}`}>
+                  {selectedComplaint.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Drawer details */}
+            <div className="p-6 space-y-4">
+              {[
+                { label: 'Consumer', value: `${selectedComplaint.consumer_first_name} ${selectedComplaint.consumer_last_name}` },
+                { label: 'Connection', value: selectedComplaint.connection_name || (selectedComplaint.connection_id ? `#${selectedComplaint.connection_id}` : '—') },
+                { label: 'Description', value: selectedComplaint.description },
+                { label: 'Complaint Date', value: formatDate(selectedComplaint.complaint_date) },
+                { label: 'Assignment Date', value: selectedComplaint.assignment_date ? formatDate(selectedComplaint.assignment_date) : 'Not yet assigned' },
+                { label: 'Resolution Date', value: selectedComplaint.resolution_date ? formatDate(selectedComplaint.resolution_date) : 'Not yet resolved' },
+                { label: 'Remarks', value: selectedComplaint.remarks || 'None' },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <div className={LABEL}>{label}</div>
+                  <div className="font-outfit text-sm text-txt">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Drawer actions */}
+            <div className="p-6 border-t border-white/[0.05]">
+              {selectedComplaint.status === 'Pending' && (
+                <button
+                  disabled={updating}
+                  onClick={() => handleUpdateStatus(selectedComplaint.complaint_id, 'In Progress')}
+                  className="w-full py-3 bg-elec/10 border border-elec/40 text-elec rounded-xl hover:bg-elec/20 transition-all font-outfit text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {updating && <Spinner />}
+                  {updating ? 'Updating...' : 'Start Work'}
+                </button>
+              )}
+
+              {selectedComplaint.status === 'In Progress' && (
+                <div className="space-y-3">
+                  <div>
+                    <div className={LABEL}>Remarks (Optional)</div>
+                    <textarea
+                      value={remarks}
+                      onChange={e => setRemarks(e.target.value)}
+                      placeholder="Describe what was done..."
+                      className="w-full bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 font-outfit text-sm text-txt focus:border-elec/40 focus:outline-none resize-none h-24"
+                    />
+                  </div>
+                  <button
+                    disabled={updating}
+                    onClick={() => handleUpdateStatus(selectedComplaint.complaint_id, 'Resolved')}
+                    className="w-full py-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl hover:bg-green-500/20 transition-all font-outfit text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {updating && <Spinner />}
+                    {updating ? 'Updating...' : 'Mark Resolved'}
+                  </button>
+                </div>
+              )}
+
+              {selectedComplaint.status === 'Resolved' && (
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-green-400 text-center">
+                  This complaint has been resolved
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </SideDrawer>
+    </>
   );
 };
 

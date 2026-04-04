@@ -45,9 +45,11 @@ import ProductivityDashboard from './components/Employee/Analytics/ProductivityD
 import RegionalHeatmap       from './components/Employee/Analytics/RegionalHeatmap';
 
 // Field Worker pages
-import MyJobs from './components/FieldWorker/MyJobs';
-import MeterReading from './components/FieldWorker/MeterReading';
+import MyJobs              from './components/FieldWorker/MyJobs';
+import MeterReading        from './components/FieldWorker/MeterReading';
 import FieldWorkerDashboard from './components/FieldWorker/FieldWorkerDashboard';
+import AddMeter            from './components/FieldWorker/AddMeter';
+import AddMeterForm        from './components/FieldWorker/AddMeterForm';
 
 const RootRedirect = () => {
   const { isAuthenticated, user } = useAuth();
@@ -106,11 +108,12 @@ function App() {
               <ProtectedRoute roles={['field_worker']}>
                 <Layout>
                   <Routes>
-                    <Route path="dashboard" element={<FieldWorkerDashboard />} />
-                    <Route path="jobs"      element={<MyJobs />} />
-                    <Route path="readings"  element={<MeterReading />} />
-                    <Route path="add-meter" element={<MeterReading />} />
-                    <Route path="profile"   element={<Profile />} />
+                    <Route path="dashboard"       element={<FieldWorkerDashboard />} />
+                    <Route path="jobs"            element={<MyJobs />} />
+                    <Route path="readings"        element={<MeterReading />} />
+                    <Route path="add-meter"       element={<AddMeter />} />
+                    <Route path="add-meter/new"   element={<AddMeterForm />} />
+                    <Route path="profile"         element={<Profile />} />
                     <Route path="*" element={<Navigate to="/fieldworker/dashboard" replace />} />
                   </Routes>
                 </Layout>

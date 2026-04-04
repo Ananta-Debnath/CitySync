@@ -14,9 +14,15 @@ router.get('/dashboard', fieldworkerController.getDashboard);
 router.get('/jobs', fieldworkerController.getJobs);
 router.put('/jobs/:id/status', fieldworkerController.updateJobStatus);
 
+// Complaints (alias for jobs, used by MyJobs UI)
+router.get('/complaints', fieldworkerController.getJobs);
+router.put('/complaints/:id', fieldworkerController.updateJobStatus);
+
 // Meter reading related
 router.get('/connections', fieldworkerController.getConnections);
+router.get('/meters/stats', fieldworkerController.getMeterStats);
 router.get('/meters', fieldworkerController.getMeters);
+router.post('/meters', fieldworkerController.createMeter);
 router.get('/tariffs', fieldworkerController.getTariffs);
 router.get('/tariffs/:tariff_id/slabs', fieldworkerController.getTariffSlabs);
 router.get('/readings', fieldworkerController.getReadings);
