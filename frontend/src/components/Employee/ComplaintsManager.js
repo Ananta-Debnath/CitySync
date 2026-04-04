@@ -36,8 +36,7 @@ const ComplaintsManager = () => {
 
     try {
       const res = await assignComplaintAuto(showPriorityModal.complaint_id, {
-        priority,
-        assigned_by: user.userId
+        priority
       });
 
       const data = res.data;

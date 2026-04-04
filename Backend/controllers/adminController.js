@@ -689,7 +689,7 @@ const assignComplaintAuto = async (req, res) => {
     const updateResult = await pool.query(`
       UPDATE complaint
       SET assigned_to = $1, assigned_by = $2, assignment_date = CURRENT_DATE,
-          status = 'In Progress', priority = $3
+          status = 'Assigned', priority = $3
       WHERE complaint_id = $4
       RETURNING *
     `, [selectedWorker.person_id, assigned_by, priority, complaintId]);
@@ -961,7 +961,7 @@ const getBills = async (req, res) => {
         bd.*,
         p.first_name, p.last_name,
         u.utility_name,
-        bp.bill_period_start, bp.bill_period_end, bp.due_date, bp.remarks,
+        bp.unit_consumed, bp.bill_period_start, bp.bill_period_end, bp.due_date, bp.remarks,
         uc.payment_type
       FROM bill_document bd
       LEFT JOIN utility_connection uc ON bd.connection_id = uc.connection_id
@@ -979,120 +979,138 @@ const getBills = async (req, res) => {
   }
 };
 
+// const generateBill = async (req, res) => {
+//   const { connection_id, bill_period_start, bill_period_end, due_date } = req.body;
+
+//   if (!connection_id || !bill_period_start || !bill_period_end || !due_date) {
+//     return res.status(400).json({ error: 'connection_id, bill_period_start, bill_period_end, due_date are required' });
+//   }
+
+//   const client = await pool.connect();
+//   try {
+//     await client.query('BEGIN');
+
+//     const connCheck = await client.query(
+//       `SELECT payment_type, tariff_id FROM utility_connection WHERE connection_id = $1`,
+//       [connection_id]
+//     );
+//     if (connCheck.rows.length === 0) return res.status(404).json({ error: 'Connection not found' });
+//     if (connCheck.rows[0].payment_type.toUpperCase() !== 'POSTPAID') {
+//       return res.status(400).json({ error: 'Bill generation only applies to postpaid connections' });
+//     }
+
+//     const tariff_id = connCheck.rows[0].tariff_id;
+
+//     const dupCheck = await client.query(
+//       `SELECT bill_document_id FROM bill_postpaid
+//       WHERE bill_document_id IN (
+//         SELECT bill_document_id FROM bill_document WHERE connection_id = $1 AND bill_status = 'UNPAID'
+//       )
+//       AND bill_period_start <= $3 AND bill_period_end >= $2`,
+//       [connection_id, bill_period_start, bill_period_end]
+//     );
+//     if (dupCheck.rows.length > 0) {
+//       return res.status(409).json({ error: 'An unpaid bill already exists for this period' });
+//     }
+
+//     const energyResult = await client.query(
+//       `SELECT calculate_energy_amount($1, $2, $3) AS energy_amount`,
+//       [connection_id, bill_period_start, bill_period_end]
+//     );
+//     const energy_amount = parseFloat(energyResult.rows[0].energy_amount) || 0;
+
+//     const usageResult = await client.query(
+//       `SELECT COALESCE(SUM(u.unit_used), 0) AS total_units
+//       FROM usage u
+//       JOIN utility_connection uc ON u.meter_id = uc.meter_id
+//       WHERE uc.connection_id = $1
+//         AND u.time_to::date BETWEEN $2 AND $3`,
+//       [connection_id, bill_period_start, bill_period_end]
+//     );
+//     const unit_consumed = parseFloat(usageResult.rows[0].total_units) || 0;
+
+//     const fcResult = await client.query(
+//       `SELECT COALESCE(SUM(charge_amount), 0) AS fixed_total,
+//              array_agg(fixed_charge_id) AS charge_ids
+//       FROM fixed_charge
+//       WHERE tariff_id = $1 AND is_mandatory = TRUE`,
+//       [tariff_id]
+//     );
+//     const fixed_total = parseFloat(fcResult.rows[0].fixed_total) || 0;
+//     const charge_ids = fcResult.rows[0].charge_ids || [];
+
+//     const vatResult = await client.query(
+//       `SELECT COALESCE(vat_rate, 0) AS vat_rate, COALESCE(is_vat_exempt, false) AS is_vat_exempt
+//        FROM tariff WHERE tariff_id = $1`,
+//       [tariff_id]
+//     );
+//     const tariff_vat_rate = parseFloat(vatResult.rows[0]?.vat_rate) || 0;
+//     const is_vat_exempt = vatResult.rows[0]?.is_vat_exempt ?? false;
+
+//     const subtotal = energy_amount + fixed_total;
+//     const vat_amount = is_vat_exempt ? 0 : parseFloat((subtotal * tariff_vat_rate / 100).toFixed(2));
+//     const total_amount = subtotal + vat_amount;
+
+//     const billResult = await client.query(
+//       `INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, subtotal, vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
+//       VALUES ($1, 'POSTPAID', $2, $3, $4, $5, $6, $7, $8, 'UNPAID')
+//       RETURNING bill_document_id`,
+//       [connection_id, unit_consumed, energy_amount, subtotal, tariff_vat_rate, vat_amount, is_vat_exempt, total_amount]
+//     );
+//     const bill_document_id = billResult.rows[0].bill_document_id;
+
+//     await client.query(
+//       `INSERT INTO bill_postpaid (bill_document_id, bill_period_start, bill_period_end, due_date)
+//       VALUES ($1, $2, $3, $4)`,
+//       [bill_document_id, bill_period_start, bill_period_end, due_date]
+//     );
+
+//     const timeframe = `${bill_period_start} to ${bill_period_end}`;
+//     for (const fc_id of charge_ids) {
+//       await client.query(
+//         `INSERT INTO fixed_charge_applied (fixed_charge_id, bill_document_id, timeframe)
+//         VALUES ($1, $2, $3)`,
+//         [fc_id, bill_document_id, timeframe]
+//       );
+//     }
+
+//     await client.query('COMMIT');
+//     res.status(201).json({
+//       message: 'Bill generated successfully',
+//       bill_document_id,
+//       unit_consumed,
+//       energy_amount,
+//       fixed_charges: fixed_total,
+//       subtotal,
+//       vat_rate: tariff_vat_rate,
+//       vat_amount,
+//       is_vat_exempt,
+//       total_amount
+//     });
+//   } catch (err) {
+//     await client.query('ROLLBACK');
+//     console.error(err);
+//     res.status(500).json({ error: err.message || 'Failed to generate bill' });
+//   } finally {
+//     client.release();
+//   }
+// };
+
 const generateBill = async (req, res) => {
-  const { connection_id, bill_period_start, bill_period_end, due_date } = req.body;
-
-  if (!connection_id || !bill_period_start || !bill_period_end || !due_date) {
-    return res.status(400).json({ error: 'connection_id, bill_period_start, bill_period_end, due_date are required' });
-  }
-
-  const client = await pool.connect();
+  const { connection_id, bill_period_start, bill_period_end, due_in_days } = req.body;
   try {
-    await client.query('BEGIN');
-
-    const connCheck = await client.query(
-      `SELECT payment_type, tariff_id FROM utility_connection WHERE connection_id = $1`,
-      [connection_id]
+    await pool.query(
+      `CALL create_postpaid_bill_for_connection($1, $2, $3, $4)`,
+      [connection_id, bill_period_start, bill_period_end, due_in_days]
     );
-    if (connCheck.rows.length === 0) return res.status(404).json({ error: 'Connection not found' });
-    if (connCheck.rows[0].payment_type.toUpperCase() !== 'POSTPAID') {
-      return res.status(400).json({ error: 'Bill generation only applies to postpaid connections' });
-    }
-
-    const tariff_id = connCheck.rows[0].tariff_id;
-
-    const dupCheck = await client.query(
-      `SELECT bill_document_id FROM bill_postpaid
-      WHERE bill_document_id IN (
-        SELECT bill_document_id FROM bill_document WHERE connection_id = $1 AND bill_status = 'UNPAID'
-      )
-      AND bill_period_start <= $3 AND bill_period_end >= $2`,
-      [connection_id, bill_period_start, bill_period_end]
-    );
-    if (dupCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'An unpaid bill already exists for this period' });
-    }
-
-    const energyResult = await client.query(
-      `SELECT calculate_energy_amount($1, $2, $3) AS energy_amount`,
-      [connection_id, bill_period_start, bill_period_end]
-    );
-    const energy_amount = parseFloat(energyResult.rows[0].energy_amount) || 0;
-
-    const usageResult = await client.query(
-      `SELECT COALESCE(SUM(u.unit_used), 0) AS total_units
-      FROM usage u
-      JOIN utility_connection uc ON u.meter_id = uc.meter_id
-      WHERE uc.connection_id = $1
-        AND u.time_to::date BETWEEN $2 AND $3`,
-      [connection_id, bill_period_start, bill_period_end]
-    );
-    const unit_consumed = parseFloat(usageResult.rows[0].total_units) || 0;
-
-    const fcResult = await client.query(
-      `SELECT COALESCE(SUM(charge_amount), 0) AS fixed_total,
-             array_agg(fixed_charge_id) AS charge_ids
-      FROM fixed_charge
-      WHERE tariff_id = $1 AND is_mandatory = TRUE`,
-      [tariff_id]
-    );
-    const fixed_total = parseFloat(fcResult.rows[0].fixed_total) || 0;
-    const charge_ids = fcResult.rows[0].charge_ids || [];
-
-    const vatResult = await client.query(
-      `SELECT COALESCE(vat_rate, 0) AS vat_rate, COALESCE(is_vat_exempt, false) AS is_vat_exempt
-       FROM tariff WHERE tariff_id = $1`,
-      [tariff_id]
-    );
-    const tariff_vat_rate = parseFloat(vatResult.rows[0]?.vat_rate) || 0;
-    const is_vat_exempt = vatResult.rows[0]?.is_vat_exempt ?? false;
-
-    const subtotal = energy_amount + fixed_total;
-    const vat_amount = is_vat_exempt ? 0 : parseFloat((subtotal * tariff_vat_rate / 100).toFixed(2));
-    const total_amount = subtotal + vat_amount;
-
-    const billResult = await client.query(
-      `INSERT INTO bill_document (connection_id, bill_type, unit_consumed, energy_amount, subtotal, vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
-      VALUES ($1, 'POSTPAID', $2, $3, $4, $5, $6, $7, $8, 'UNPAID')
-      RETURNING bill_document_id`,
-      [connection_id, unit_consumed, energy_amount, subtotal, tariff_vat_rate, vat_amount, is_vat_exempt, total_amount]
-    );
-    const bill_document_id = billResult.rows[0].bill_document_id;
-
-    await client.query(
-      `INSERT INTO bill_postpaid (bill_document_id, bill_period_start, bill_period_end, due_date)
-      VALUES ($1, $2, $3, $4)`,
-      [bill_document_id, bill_period_start, bill_period_end, due_date]
-    );
-
-    const timeframe = `${bill_period_start} to ${bill_period_end}`;
-    for (const fc_id of charge_ids) {
-      await client.query(
-        `INSERT INTO fixed_charge_applied (fixed_charge_id, bill_document_id, timeframe)
-        VALUES ($1, $2, $3)`,
-        [fc_id, bill_document_id, timeframe]
-      );
-    }
-
-    await client.query('COMMIT');
-    res.status(201).json({
-      message: 'Bill generated successfully',
-      bill_document_id,
-      unit_consumed,
-      energy_amount,
-      fixed_charges: fixed_total,
-      subtotal,
-      vat_rate: tariff_vat_rate,
-      vat_amount,
-      is_vat_exempt,
-      total_amount
-    });
+    res.status(201).json({ message: 'Bill generated successfully' });
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).json({ error: err.message || 'Failed to generate bill' });
-  } finally {
-    client.release();
+    if (err.code === 'P0001') 
+      return res.status(400).json({ error: 'Bill already exists for the specified period' });
+    else if (err.code === 'P0002') 
+      return res.status(400).json({ error: 'Calculated total amount is zero or negative' });
+    else res.status(500).json({ error: 'Failed to generate bill' });
   }
 };
 

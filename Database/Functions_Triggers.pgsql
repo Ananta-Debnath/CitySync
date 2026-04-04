@@ -564,8 +564,8 @@ BEGIN
       AND bp.bill_period_end >= p_period_start
       AND bp.bill_period_start <= p_period_end
   ) THEN
-    -- RAISE EXCEPTION 'Bill already exists for connection % and period % to %', p_connection_id, p_period_start, p_period_end;
-    RETURN;
+    RAISE EXCEPTION 'Bill already exists for connection % and period % to %', p_connection_id, p_period_start, p_period_end
+    USING ERRCODE = 'P0001';
   END IF;
 
   SELECT COALESCE(SUM(u.unit_used), 0)
@@ -595,8 +595,8 @@ BEGIN
   -- Early creation for reference
   INSERT INTO bill_document (connection_id, bill_type, bill_generation_date, energy_amount, subtotal,
                              vat_rate, vat_amount, is_vat_exempt, total_amount, bill_status)
-  VALUES (p_connection_id, 'POSTPAID', v_bill_generation_date, v_energy_amount, 0,
-          v_vat_rate, 0, v_is_vat_exempt, 0, 'UNPAID')
+  VALUES (p_connection_id, 'POSTPAID', v_bill_generation_date, v_energy_amount, 1,
+          v_vat_rate, 1, v_is_vat_exempt, 2, 'UNPAID')
   RETURNING bill_document_id INTO v_bill_document_id;
 
   FOR v_fc IN (SELECT * FROM fixed_charge WHERE tariff_id = v_tariff_id AND is_mandatory AND charge_frequency ILIKE 'MONTHLY') LOOP
@@ -608,6 +608,12 @@ BEGIN
   v_subtotal := ROUND(v_energy_amount + v_fixed_charge_total, 2);
   v_vat_amount := ROUND((v_subtotal * v_vat_rate) / 100.0, 2);
   v_total_amount := ROUND(v_subtotal + v_vat_amount, 2);
+
+  IF v_total_amount <= 0 THEN
+    RAISE EXCEPTION 'Calculated total amount is zero or negative for connection % and period % to %. Energy amount: %, Fixed charge total: %, VAT rate: %',
+      p_connection_id, p_period_start, p_period_end, v_energy_amount, v_fixed_charge_total, v_vat_rate
+      USING ERRCODE = 'P0002';
+  END IF;
   
   UPDATE bill_document
   SET subtotal = v_subtotal,
