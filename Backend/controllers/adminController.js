@@ -1276,6 +1276,15 @@ const generateBill = async (req, res) => {
   }
 };
 
+const generateMonthlyBills = async (req, res) => {
+  try {
+    await pool.query(`CALL create_monthly_bills()`);
+    res.status(200).json({ message: 'Monthly bills generated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate monthly bills' });
+  }
+};
+
 const updateBillStatus = async (req, res) => {
   const { id } = req.params;
   const { bill_status } = req.body;
@@ -1864,6 +1873,7 @@ module.exports = {
   approveComplaintChange,
   getBills,
   generateBill,
+  generateMonthlyBills,
   updateBillStatus,
   getPayments,
   getTableData,

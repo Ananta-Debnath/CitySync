@@ -109,8 +109,9 @@ const getUtilityNames = async (req, res) => {
     const result = await pool.query(`
       SELECT
         u.utility_id,
-        u.utility_name, 
-        u.utility_type
+        u.utility_name,
+        u.utility_type,
+        ur.is_available
       FROM utility u
       JOIN utility_region ur ON u.utility_id = ur.utility_id
       WHERE ur.region_id = $1

@@ -90,6 +90,7 @@ export const deleteFixedCharge = (tariffId, fcId) => api.delete(`/admin/tariffs/
 export const getBills         = ()         => api.get('/admin/bills');                              // NEW
 export const generateBill     = (data)     => api.post('/admin/bills/generate', data);              // NEW
 export const updateBillStatus = (id, status) => api.put(`/admin/bills/${id}/status`, { bill_status: status }); // NEW
+export const generateMonthlyBills = () => api.post('/admin/bills/generate-monthly');                          // NEW
 
 // ── Payments ───────────────────────────────────────────────────────
 export const getPayments = () => api.get('/admin/payments');                                        // NEW

@@ -15,6 +15,8 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
   const [useMyAddress, setUseMyAddress] = useState(false);
   const [regionWarning, setRegionWarning] = useState(null);
   const [acknowledgeWarning, setAcknowledgeWarning] = useState(false);
+  const [utilityWarning, setUtilityWarning] = useState(null);
+  const [acknowledgeUtilityWarning, setAcknowledgeUtilityWarning] = useState(false);
 
   const handleUseMyAddress = async (checked) => {
     if (checked) {
@@ -42,6 +44,7 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
     if (!form.region_id) { setError('Region is required'); return; }
     if (!form.utility_id) { setError('Utility is required'); return; }
     if (regionWarning && !acknowledgeWarning) { setError('Please acknowledge the region capacity warning before submitting'); return; }
+    if (utilityWarning && !acknowledgeUtilityWarning) { setError('Please acknowledge the utility capacity warning before submitting'); return; }
     setLoading(true); setError('');
     try {
       await submitConsumerApplication(form);
@@ -141,7 +144,7 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
                     {['Electricity', 'Water', 'Gas'].map(type => (
                         <button
                             key={type}
-                            onClick={() => { setUtilityType(type.toLowerCase()); setForm(f => ({ ...f, utility_id: '' })); }}
+                            onClick={() => { setUtilityType(type.toLowerCase()); setForm(f => ({ ...f, utility_id: '' })); setUtilityWarning(null); setAcknowledgeUtilityWarning(false); }}
                             className={`flex flex-col items-center gap-3 p-5 rounded-3xl border transition-all ${
                                 utility_type === type.toLowerCase() 
                                 ? 'bg-lime text-bg border-lime font-bold shadow-lg shadow-lime/10' 
@@ -210,7 +213,8 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
                             options={regionOptions}
                             value={regionOptions.find(o => o.value === form.region_id)}
                             onChange={opt => {
-                                setForm(f => ({ ...f, region_id: opt?.value || '' }));
+                                setForm(f => ({ ...f, region_id: opt?.value || '', utility_id: '' }));
+                                setUtilityWarning(null); setAcknowledgeUtilityWarning(false);
                                 if (opt?.value) { fetchUtilities(opt.value); checkRegionAvailability(opt.value); }
                                 else { setRegionWarning(null); }
                             }}
@@ -251,9 +255,32 @@ const NewApplicationModal = ({ onClose, onSuccess }) => {
                             styles={customSelectStyles}
                             options={utilityOptions}
                             value={utilityOptions.find(o => o.value === form.utility_id)}
-                            onChange={opt => setForm(f => ({ ...f, utility_id: opt?.value || '' }))}
+                            onChange={opt => {
+                                setForm(f => ({ ...f, utility_id: opt?.value || '' }));
+                                const selected = utilitiesList.find(u => u.utility_id === opt?.value);
+                                if (selected && !selected.is_available) {
+                                    setUtilityWarning('This region is currently overloaded. Your application may get rejected. Apply anyway?');
+                                } else {
+                                    setUtilityWarning(null);
+                                }
+                                setAcknowledgeUtilityWarning(false);
+                            }}
                             placeholder="Select Utility Provider..."
                         />
+                        {utilityWarning && (
+                            <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4">
+                                <p className="font-outfit text-xs text-yellow-300 mb-3">{utilityWarning}</p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={acknowledgeUtilityWarning}
+                                        onChange={e => setAcknowledgeUtilityWarning(e.target.checked)}
+                                        className="accent-lime"
+                                    />
+                                    <span className="font-outfit text-xs text-txt/60">I understand and want to apply anyway</span>
+                                </label>
+                            </div>
+                        )}
                     </div>
 
                     <div>

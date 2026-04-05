@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const ROLE_HOME = {
   employee:     '/employee/dashboard',
-  field_worker: '/field-worker/dashboard',
+  field_worker: '/fieldworker/dashboard',
   consumer:     '/consumer/dashboard',
 };
 

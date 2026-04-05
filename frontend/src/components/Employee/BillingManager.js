@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getConnections, getBills, updateBillStatus } from '../../services/api';
+import { getConnections, getBills, updateBillStatus, generateMonthlyBills } from '../../services/api';
 import { useTheme } from '../Layout/ThemeContext';
 import { tokens, fonts } from '../../theme';
 import GenerateBillModal from './GenerateBillModal';
@@ -49,6 +49,16 @@ const BillingManager = () => {
     } catch { alert('Failed to update bill status'); }
   };
 
+  const handleGenerateMonthly = async () => {
+    try {
+      await generateMonthlyBills();
+      alert('Monthly bills generated successfully!');
+      load();
+    } catch {
+      alert('Monthly bills generation unsuccessful!');
+    }
+  };
+
   const filtered = filterStatus === 'ALL' ? bills : bills.filter(b => b.bill_status === filterStatus);
 
   const summary = {
@@ -64,12 +74,20 @@ const BillingManager = () => {
     <div style={{ fontFamily: fonts.ui }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ color: t.text, margin: 0 }}>Billing Manager</h2>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{ padding: '10px 18px', background: '#3B6FFF', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
-        >
-          + Generate Bill
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{ padding: '10px 18px', background: '#3B6FFF', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
+          >
+            + Generate Bill
+          </button>
+          <button
+            onClick={handleGenerateMonthly}
+            style={{ padding: '10px 18px', background: '#10B981', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
+          >
+            Generate Monthly Bill
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}

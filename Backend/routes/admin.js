@@ -76,6 +76,7 @@ router.post('/complaints/:id/approve-change', adminController.approveComplaintCh
 // Billing
 router.get('/bills', adminController.getBills);
 router.post('/bills/generate', adminController.generateBill);
+router.post('/bills/generate-monthly', adminController.generateMonthlyBills);
 router.put('/bills/:id/status', adminController.updateBillStatus);
 
 // Payments

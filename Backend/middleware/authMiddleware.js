@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
   try {
-    // 1️⃣ Get token from header
+    // 1️ Get token from header
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -16,13 +16,13 @@ const authMiddleware = (req, res, next) => {
       return res.status(401).json({ message: 'Invalid token format' });
     }
 
-    // 2️⃣ Verify token
+    //  Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 3️⃣ Attach user info to request
+    //  Attach user info to request
     req.user = decoded;
 
-    next(); // 4️⃣ Continue to route
+    next(); //  Continue to route
 
   } catch (error) {
     console.error('Token verification error:', error.message);
